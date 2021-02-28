@@ -8,17 +8,18 @@ import io.prometheus.client.exporter.common.TextFormat
 import io.prometheus.client.hotspot.StandardExports
 import zio.clock.Clock
 import zio.duration._
-import zio.stm.TPriorityQueue
 import zio.stream.{UStream, ZStream}
 import zio.{Chunk, ExitCode, Queue, UIO, URIO, ZIO}
 
 import java.io.StringWriter
 import java.time.{Duration, LocalTime}
+import java.util.Comparator
+import java.util.concurrent.PriorityBlockingQueue
 import java.util.concurrent.atomic.AtomicLong
 
 object Main extends zio.App {
   final val Width = 3500
-  final val Step = 4
+  final val Step = 2
   final val Host = sys.env.getOrElse("ADDRESS", "localhost")
   final val IsLocal = !sys.env.contains("ADDRESS")
   final val Cpus = Runtime.getRuntime.availableProcessors()
@@ -32,6 +33,10 @@ object Main extends zio.App {
 
     val layer = MineClient.live(Host)
 
+    val queue = new PriorityBlockingQueue[ExploreReport](50, new Comparator[ExploreReport] {
+      override def compare(r1: ExploreReport, r2: ExploreReport): Int = r2.amount.compareTo(r1.amount)
+    })
+
     val program = for {
       _ <- ZStream.tick(if (IsLocal) 10.second else 30.second)
         .drop(1)
@@ -42,18 +47,21 @@ object Main extends zio.App {
         .foreach(_ => printMetrics())
         .forkDaemon
 
-      areaQueue <- TPriorityQueue.empty(Ordering.by[ExploreReport, Int](_.amount).reverse).commit
-
       _ <- areas(Step)
         .mapM { case (x, y) => MineClient.explore(Area(x, y, Step, Step)) }
-        .foreach(r => areaQueue.offer(r).commit)
+        .foreach(r => UIO(queue.put(r)))
         .fork
-      //      orderedReports = areaReports.sortBy(_.amount)(Ordering[Int].reverse)
-      //      avg <- printStatsAndGetAverage(orderedReports)
 
       (wallet, execWithLicense) <- LicensePool.makeSimple
-      _ <- ZStream.repeatEffect(areaQueue.take.commit)
-        .foreach(exploreAndDig(wallet, execWithLicense))
+      _ <- ZStream.repeat(queue.take())
+        .flatMap(r => cells(r.area))
+        .mapM { case (x, y) => MineClient.explore(Area(x, y, 1, 1)) }
+        .filter(_.amount > 0)
+        .mapConcatM(dig(execWithLicense))
+        .buffer(128)
+        .mapConcatM(MineClient.cash)
+        .buffer(128)
+        .foreach { coin => wallet.offer(coin).as(TotalGold.incrementAndGet()) }
     } yield ()
 
     program.provideCustomLayer(layer).exitCode
