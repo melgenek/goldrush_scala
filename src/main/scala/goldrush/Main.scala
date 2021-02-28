@@ -8,16 +8,17 @@ import io.prometheus.client.exporter.common.TextFormat
 import io.prometheus.client.hotspot.StandardExports
 import zio.clock.Clock
 import zio.duration._
+import zio.stm.TPriorityQueue
 import zio.stream.{UStream, ZStream}
 import zio.{Chunk, ExitCode, Queue, UIO, URIO, ZIO}
 
 import java.io.StringWriter
 import java.time.{Duration, LocalTime}
-import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
+import java.util.concurrent.atomic.AtomicLong
 
 object Main extends zio.App {
   final val Width = 3500
-  final val Step = 25
+  final val Step = 4
   final val Host = sys.env.getOrElse("ADDRESS", "localhost")
   final val IsLocal = !sys.env.contains("ADDRESS")
   final val Cpus = Runtime.getRuntime.availableProcessors()
@@ -41,33 +42,26 @@ object Main extends zio.App {
         .foreach(_ => printMetrics())
         .forkDaemon
 
-      //      areaReports <- areas
-      //        .mapMPar(Cpus) { case (x, y) => MineClient.explore(Area(x, y, Step, Step)) }
-      //        .runCollect
+      areaQueue <- TPriorityQueue.empty(Ordering.by[ExploreReport, Int](_.amount).reverse).commit
+
+      _ <- areas(Step)
+        .mapM { case (x, y) => MineClient.explore(Area(x, y, Step, Step)) }
+        .foreach(r => areaQueue.offer(r).commit)
+        .fork
       //      orderedReports = areaReports.sortBy(_.amount)(Ordering[Int].reverse)
       //      avg <- printStatsAndGetAverage(orderedReports)
 
       (wallet, execWithLicense) <- LicensePool.makeSimple
-      _ <- cells(Area(0, 0, Width, Width))
-        //        .mapMPar(Cpus)(exploreAndDig(wallet, execWithLicense, avg))
-        .mapM { case (x, y) => MineClient.explore(Area(x, y, 1, 1)) }
-        .filter(_.amount > 0)
-        .buffer(128)
-        .mapConcatM(dig(execWithLicense))
-        .buffer(128)
-        .mapConcatM(MineClient.cash)
-        .buffer(128)
-        .foreach { coin => wallet.offer(coin).as(TotalGold.incrementAndGet()) }
+      _ <- ZStream.repeatEffect(areaQueue.take.commit)
+        .foreach(exploreAndDig(wallet, execWithLicense))
     } yield ()
 
     program.provideCustomLayer(layer).exitCode
   }
 
-  def exploreAndDig(wallet: Queue[Coin], execWithLicense: ExecWithLicense, metric: Float)(report: ExploreReport): URIO[MineClient with Clock, Int] = {
-    cells(report.area).foldM(0) { case (found, (x, y)) =>
-      if ((report.amount - found) < metric) URIO(found)
-      else exploreAndDigCell(wallet, execWithLicense)(x, y)
-    }
+  def exploreAndDig(wallet: Queue[Coin], execWithLicense: ExecWithLicense)(report: ExploreReport): URIO[MineClient with Clock, Unit] = {
+    cells(report.area)
+      .foreach { case (x, y) => exploreAndDigCell(wallet, execWithLicense)(x, y) }
   }
 
   def exploreAndDigCell(wallet: Queue[Coin], execWithLicense: ExecWithLicense)(x: Int, y: Int): URIO[MineClient with Clock, Int] = {
@@ -79,10 +73,7 @@ object Main extends zio.App {
 
   def digAndExchange(wallet: Queue[Coin], execWithLicense: ExecWithLicense)(report: ExploreReport): URIO[MineClient with Clock, Int] = {
     for {
-      allGold <- ZIO.foldLeft(1 to 10)(List.empty[Gold]) { case (acc, depth) =>
-        if (acc.size >= report.amount) UIO(acc)
-        else execWithLicense(licenseId => MineClient.dig(DigRequest(licenseId, report.area.posX, report.area.posY, depth))).map(_ ++ acc)
-      }
+      allGold <- dig(execWithLicense)(report)
       coins <- ZIO.foreachPar(allGold)(MineClient.cash)
       allCoins = coins.flatten
       _ <- ZIO.foreachPar(allCoins)(c => wallet.offer(c))
@@ -97,8 +88,8 @@ object Main extends zio.App {
     }
   }
 
-  def areas: UStream[(Int, Int)] = {
-    val row = ZStream.iterate(0)(_ + Step).take(Width / Step)
+  def areas(step: Int): UStream[(Int, Int)] = {
+    val row = ZStream.iterate(0)(_ + step).take(Width / step)
     row.cross(row)
   }
 
