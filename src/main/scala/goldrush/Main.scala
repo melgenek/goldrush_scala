@@ -41,17 +41,17 @@ object Main extends zio.App {
         .foreach(_ => printMetrics())
         .forkDaemon
 
-      areaReports <- areas
-        .mapMPar(Cpus) { case (x, y) => MineClient.explore(Area(x, y, Step, Step)) }
-        .runCollect
-      orderedReports = areaReports.sortBy(_.amount)(Ordering[Int].reverse)
-      avg <- printStatsAndGetAverage(orderedReports)
+      //      areaReports <- areas
+      //        .mapMPar(Cpus) { case (x, y) => MineClient.explore(Area(x, y, Step, Step)) }
+      //        .runCollect
+      //      orderedReports = areaReports.sortBy(_.amount)(Ordering[Int].reverse)
+      //      avg <- printStatsAndGetAverage(orderedReports)
 
       (wallet, execWithLicense) <- LicensePool.makeSimple
-      _ <- ZStream.fromChunk(orderedReports)
-        .mapMPar(Cpus)(exploreAndDig(wallet, execWithLicense, avg))
+      _ <- cells(Area(0, 0, Width, Width))
+        .mapMPar(Cpus * 4) { case (x, y) => exploreAndDigCell(wallet, execWithLicense)(x, y) }
+        //        .mapMPar(Cpus)(exploreAndDig(wallet, execWithLicense, avg))
 
-        //        .flatMap(r => cells(r.area))
         //        .mapMPar(Cpus) { case (x, y) => MineClient.explore(Area(x, y, 1, 1)) }
         //        .filter(_.amount > 0)
         //        .mapMPar(Cpus)(digAndExchange(wallet, execWithLicense))
@@ -65,11 +65,15 @@ object Main extends zio.App {
   def exploreAndDig(wallet: Queue[Coin], execWithLicense: ExecWithLicense, metric: Float)(report: ExploreReport): URIO[MineClient with Clock, Int] = {
     cells(report.area).foldM(0) { case (found, (x, y)) =>
       if ((report.amount - found) < metric) URIO(found)
-      else for {
-        cellReport <- MineClient.explore(Area(x, y, 1, 1))
-        cellFound <- if (cellReport.amount > 0) digAndExchange(wallet, execWithLicense)(cellReport) else UIO(0)
-      } yield found + cellFound
+      else exploreAndDigCell(wallet, execWithLicense)(x, y)
     }
+  }
+
+  def exploreAndDigCell(wallet: Queue[Coin], execWithLicense: ExecWithLicense)(x: Int, y: Int): URIO[MineClient with Clock, Int] = {
+    for {
+      cellReport <- MineClient.explore(Area(x, y, 1, 1))
+      cellFound <- if (cellReport.amount > 0) digAndExchange(wallet, execWithLicense)(cellReport) else UIO(0)
+    } yield cellFound
   }
 
   def digAndExchange(wallet: Queue[Coin], execWithLicense: ExecWithLicense)(report: ExploreReport): URIO[MineClient with Clock, Int] = {
