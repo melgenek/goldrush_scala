@@ -37,12 +37,12 @@ object LicensePool {
 
   def make: URIO[MineClient with Clock, (Queue[Coin], Queue[LicenseLease])] = {
     for {
-      wallet <- ZQueue.dropping[Coin](MaxLicenses * 10)
+      wallet <- ZQueue.dropping[Coin](MaxLicenses * 2)
       licenseRequests <- ZQueue.bounded[Unit](MaxLicenses)
       _ <- licenseRequests.offer(()).repeatN(MaxLicenses - 1)
       licenses <- ZQueue.bounded[LicenseLease](MaxLicenses * 5)
       _ <- ZStream.fromQueueWithShutdown(licenseRequests)
-        .mapMPar(Main.Cpus) { _ =>
+        .foreach { _ =>
           for {
             coin <- wallet.poll
             license <- MineClient.issueLicense(coin)
@@ -52,7 +52,6 @@ object LicensePool {
             }
           } yield ()
         }
-        .runDrain
         .fork
     } yield (wallet, licenses)
   }

@@ -52,12 +52,12 @@ object Main extends zio.App {
         .foreach(r => UIO(queue.put(r)))
         .fork
 
-      (wallet, execWithLicense) <- LicensePool.makeSimple
+      (wallet, licenses) <- LicensePool.make
       _ <- ZStream.repeat(queue.take())
         .flatMap(r => cells(r.area))
         .mapM { case (x, y) => MineClient.explore(Area(x, y, 1, 1)) }
         .filter(_.amount > 0)
-        .mapConcatM(dig(execWithLicense))
+        .mapConcatM(dig(licenses))
         .buffer(128)
         .mapConcatM(MineClient.cash)
         .buffer(128)
@@ -81,7 +81,7 @@ object Main extends zio.App {
 
   def digAndExchange(wallet: Queue[Coin], execWithLicense: ExecWithLicense)(report: ExploreReport): URIO[MineClient with Clock, Int] = {
     for {
-      allGold <- dig(execWithLicense)(report)
+      allGold <- dig(???)(report)
       coins <- ZIO.foreachPar(allGold)(MineClient.cash)
       allCoins = coins.flatten
       _ <- ZIO.foreachPar(allCoins)(c => wallet.offer(c))
@@ -89,10 +89,16 @@ object Main extends zio.App {
     } yield allGold.size
   }
 
-  def dig(execWithLicense: ExecWithLicense)(report: ExploreReport): ZIO[MineClient with Clock, Nothing, List[Gold]] = {
+  def dig(licenses: Queue[LicenseLease])(report: ExploreReport): ZIO[MineClient with Clock, Nothing, List[Gold]] = {
     ZIO.foldLeft(1 to 10)(List.empty[Gold]) { case (acc, depth) =>
       if (acc.size >= report.amount) UIO(acc)
-      else execWithLicense(licenseId => MineClient.dig(DigRequest(licenseId, report.area.posX, report.area.posY, depth))).map(_ ++ acc)
+      else {
+        for {
+          lease <- licenses.take
+          gold <- MineClient.dig(DigRequest(lease.licenseId, report.area.posX, report.area.posY, depth))
+          _ <- lease.requestMore
+        } yield acc ++ gold
+      }
     }
   }
 
