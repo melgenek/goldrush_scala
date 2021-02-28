@@ -1,9 +1,8 @@
 package goldrush.client
 
 import goldrush.models._
-import org.asynchttpclient.{AsyncHttpClient, AsyncHttpClientConfig, DefaultAsyncHttpClient, DefaultAsyncHttpClientConfig}
 import sttp.client3._
-import sttp.client3.asynchttpclient.zio.{AsyncHttpClientZioBackend, SttpClient}
+import sttp.client3.httpclient.zio.{HttpClientZioBackend, SttpClient}
 import sttp.client3.prometheus._
 import sttp.model.StatusCode
 import zio.clock.Clock
@@ -24,7 +23,7 @@ object MineClient {
   final val Buckets = List(.1, 1)
 
   def live(host: String) =
-    AsyncHttpClientZioBackend.layer().orDie.map { c =>
+    HttpClientZioBackend.layer().orDie.map { c =>
       val zioBackend = c.get[SttpClient.Service]
       Has(PrometheusBackend(
         zioBackend,

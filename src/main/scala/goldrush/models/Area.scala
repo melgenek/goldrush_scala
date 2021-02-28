@@ -9,7 +9,9 @@ object Area {
   implicit val codec: JsonValueCodec[Area] = JsonCodecMaker.make
 }
 
-final case class ExploreReport(area: Area, amount: Int)
+final case class ExploreReport(area: Area, amount: Int) {
+  def isEmpty: Boolean = amount == 0
+}
 
 object ExploreReport {
   implicit val codec: JsonValueCodec[ExploreReport] = JsonCodecMaker.make

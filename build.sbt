@@ -9,7 +9,7 @@ libraryDependencies ++= List(
   "dev.zio" %% "zio-streams" % "1.0.4-2",
   "com.softwaremill.sttp.client3" %% "core" % "3.1.6",
   "com.softwaremill.sttp.client3" %% "json-common" % "3.1.6",
-  "com.softwaremill.sttp.client3" %% "async-http-client-backend-zio" % "3.1.6",
+  "com.softwaremill.sttp.client3" %% "httpclient-backend-zio" % "3.1.6",
   "com.softwaremill.sttp.client3" %% "prometheus-backend" % "3.1.6",
   "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % "2.6.4",
   "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "2.6.4" % "compile",
@@ -18,8 +18,13 @@ libraryDependencies ++= List(
   "io.prometheus" % "simpleclient_hotspot" % "0.10.0"
 )
 
+
+scalacOptions ++= Seq("-target:11")
+javacOptions ++= Seq("-source", "11", "-target", "11")
+
 enablePlugins(AshScriptPlugin)
-dockerBaseImage := "openjdk:8-jre-alpine"
+//dockerBaseImage := "openjdk:8-jre-alpine"
+dockerBaseImage := "adoptopenjdk/openjdk11:alpine-jre"
 dockerRepository := Some("stor.highloadcup.ru")
 dockerUsername := Some("rally")
 packageName in Docker := "modern_dolphin"

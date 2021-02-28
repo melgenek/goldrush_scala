@@ -48,19 +48,23 @@ object Main extends zio.App {
         .forkDaemon
 
       _ <- areas(Step)
-        .mapM { case (x, y) => MineClient.explore(Area(x, y, Step, Step)) }
+        .mapMPar(Cpus) { case (x, y) => MineClient.explore(Area(x, y, Step, Step)) }
+        .filterNot(_.isEmpty)
         .foreach(r => UIO(queue.put(r)))
         .fork
 
       (wallet, licenses) <- LicensePool.make
       _ <- ZStream.repeat(queue.take())
         .flatMap(r => cells(r.area))
-        .mapM { case (x, y) => MineClient.explore(Area(x, y, 1, 1)) }
-        .filter(_.amount > 0)
-        .mapConcatM(dig(licenses))
-        .buffer(128)
-        .mapConcatM(MineClient.cash)
-        .buffer(128)
+        .mapMPar(Cpus) { case (x, y) => MineClient.explore(Area(x, y, 1, 1)) }
+        .filterNot(_.isEmpty)
+        .mapMPar(Cpus)(dig(licenses))
+        .mapConcat(identity)
+        .buffer(1000)
+        .throttleShape(1000, 1.second)(_.size)
+        .mapMPar(Cpus * 4)(gold => zio.blocking.blocking(MineClient.cash(gold)))
+        .mapConcat(identity)
+        .bufferDropping(100)
         .foreach { coin => wallet.offer(coin).as(TotalGold.incrementAndGet()) }
     } yield ()
 
