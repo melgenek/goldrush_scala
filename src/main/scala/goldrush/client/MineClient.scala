@@ -3,7 +3,6 @@ package goldrush.client
 import goldrush.models._
 import sttp.client3._
 import sttp.client3.httpclient.zio.{HttpClientZioBackend, SttpClient}
-import sttp.client3.prometheus._
 import sttp.model.StatusCode
 import zio.clock.Clock
 import zio.{Has, Schedule, Task, URIO, ZIO, ZLayer}
@@ -25,14 +24,7 @@ object MineClient {
   def live(host: String) =
     HttpClientZioBackend.layer().orDie.map { c =>
       val zioBackend = c.get[SttpClient.Service]
-      Has(PrometheusBackend(
-        zioBackend,
-        requestToHistogramNameMapper = req => Some(HistogramCollectorConfig("request_latency", List("path" -> req.uri.path.mkString("/")), Buckets)),
-        requestToInProgressGaugeNameMapper = req => Some(CollectorConfig("in_progress", List("path" -> req.uri.path.mkString("/")))),
-        requestToSuccessCounterMapper = req => Some(CollectorConfig("success", List("path" -> req.uri.path.mkString("/")))),
-        requestToErrorCounterMapper = req => Some(CollectorConfig("error", List("path" -> req.uri.path.mkString("/")))),
-        requestToFailureCounterMapper = req => Some(CollectorConfig("failure", List("path" -> req.uri.path.mkString("/"))))
-      ))
+      Has(MonitoringBackend(zioBackend))
     } >+> MineClient.liveClient(host)
 
   private def liveClient(host: String) =

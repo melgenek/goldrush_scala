@@ -1,0 +1,123 @@
+*** CLIENT REPORT ***
+Balance:        45840
+Licenses active:        9
+Free licenses issued:   24
+Paid licenses issued:   1346
+Single cell explores done:      4660
+Single cell explores with treasures found:      1234
+Single cell explore treasure found rate:        0.26481
+Digs done:      6760
+Dig success rate:       0.18521
+Treasures found:        1252
+Total found treasure value:     47406
+Treasures exchanged:    1248
+Total exchanged treasure value: 47186
+Treasure exchange efficiency:   0.99681
+Treasures not exchanged:        4
+
+*** WORLD REPORT ***
+Configuration:  3500 x 3500 x 10
+Total treasures:        476520
+Total treasure value:   18645205
+Avg treasure value:     39.13
+Treasure density:       0.00389
+Treasure value density: 0.15221
+* LAYER STATS *
+Layer#  Tot.treas       Tot.treas.val   Avg.treas.val   Treas.dens      Treas.val.dens
+     1      45324              320838            7.08      0.00370             0.02619
+     2      46733              660846           14.14      0.00381             0.05395
+     3      47453             1002495           21.13      0.00387             0.08184
+     4      48263             1358066           28.14      0.00394             0.11086
+     5      47911             1693492           35.35      0.00391             0.13824
+     6      48099             2044209           42.50      0.00393             0.16687
+     7      48304             2385824           49.39      0.00394             0.19476
+     8      48067             2727044           56.73      0.00392             0.22262
+     9      48156             3053680           63.41      0.00393             0.24928
+    10      48210             3398711           70.50      0.00394             0.27745
+Final balance: 45840
+
+Starting. Cpus: 8
+PT12.738966S. Total: 3412
+PT22.739299S. Total: 12586
+PT32.739642S. Total: 21819
+PT42.742111S. Total: 32613
+PT52.744346S. Total: 39253
+# HELP in_progress in_progress
+# TYPE in_progress gauge
+in_progress{path="dig",} 5.0
+in_progress{path="licenses",} 122.0
+in_progress{path="explore",} 8.0
+in_progress{path="cash",} 186.0
+# HELP process_cpu_seconds_total Total user and system CPU time spent in seconds.
+# TYPE process_cpu_seconds_total counter
+process_cpu_seconds_total 100.470521
+# HELP process_start_time_seconds Start time of the process since unix epoch in seconds.
+# TYPE process_start_time_seconds gauge
+process_start_time_seconds 1.614634073505E9
+# HELP process_open_fds Number of open file descriptors.
+# TYPE process_open_fds gauge
+process_open_fds 63.0
+# HELP process_max_fds Maximum number of open file descriptors.
+# TYPE process_max_fds gauge
+process_max_fds 10240.0
+# HELP error_total error
+# TYPE error_total counter
+error_total{path="dig",} 5330.0
+# HELP failure_total failure
+# TYPE failure_total counter
+failure_total{path="dig",} 2035.0
+failure_total{path="licenses",} 363.0
+failure_total{path="explore",} 3712.0
+failure_total{path="cash",} 93.0
+# HELP request_latency request_latency
+# TYPE request_latency histogram
+request_latency_bucket{path="dig",le="0.1",} 8497.0
+request_latency_bucket{path="dig",le="1.0",} 8552.0
+request_latency_bucket{path="dig",le="+Inf",} 8572.0
+request_latency_count{path="dig",} 8572.0
+request_latency_sum{path="dig",} 340.5642792130004
+request_latency_bucket{path="licenses",le="0.1",} 1644.0
+request_latency_bucket{path="licenses",le="1.0",} 1668.0
+request_latency_bucket{path="licenses",le="+Inf",} 1689.0
+request_latency_count{path="licenses",} 1689.0
+request_latency_sum{path="licenses",} 100.66760230199998
+request_latency_bucket{path="explore",le="0.1",} 16769.0
+request_latency_bucket{path="explore",le="1.0",} 16879.0
+request_latency_bucket{path="explore",le="+Inf",} 16910.0
+request_latency_count{path="explore",} 16910.0
+request_latency_sum{path="explore",} 691.4285264809985
+request_latency_bucket{path="cash",le="0.1",} 1286.0
+request_latency_bucket{path="cash",le="1.0",} 1296.0
+request_latency_bucket{path="cash",le="+Inf",} 1296.0
+request_latency_count{path="cash",} 1296.0
+request_latency_sum{path="cash",} 59.85614556799999
+# HELP success_total success
+# TYPE success_total counter
+success_total{path="dig",} 1207.0
+success_total{path="licenses",} 1326.0
+success_total{path="explore",} 13198.0
+success_total{path="cash",} 1203.0
+# HELP error_created error
+# TYPE error_created gauge
+error_created{path="dig",} 1.614634081307E9
+# HELP failure_created failure
+# TYPE failure_created gauge
+failure_created{path="dig",} 1.614634081286E9
+failure_created{path="licenses",} 1.614634076813E9
+failure_created{path="explore",} 1.614634076809E9
+failure_created{path="cash",} 1.614634081661E9
+# HELP request_latency_created request_latency
+# TYPE request_latency_created gauge
+request_latency_created{path="dig",} 1.614634081262E9
+request_latency_created{path="licenses",} 1.614634076551E9
+request_latency_created{path="explore",} 1.614634076551E9
+request_latency_created{path="cash",} 1.614634081659E9
+# HELP success_created success
+# TYPE success_created gauge
+success_created{path="dig",} 1.614634081305E9
+success_created{path="licenses",} 1.614634081014E9
+success_created{path="explore",} 1.614634081013E9
+success_created{path="cash",} 1.614634081695E9
+
+PT1M2.746621S. Total: 45567
+
