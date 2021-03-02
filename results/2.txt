@@ -1,1 +1,124 @@
 
+
+*** CLIENT REPORT ***
+Balance:        51758
+Licenses active:        9
+Free licenses issued:   20
+Paid licenses issued:   1516
+Single cell explores done:      5252
+Single cell explores with treasures found:      1383
+Single cell explore treasure found rate:        0.26333
+Digs done:      7599
+Dig success rate:       0.18489
+Treasures found:        1405
+Total found treasure value:     53460
+Treasures exchanged:    1398
+Total exchanged treasure value: 53274
+Treasure exchange efficiency:   0.99502
+Treasures not exchanged:        7
+
+*** WORLD REPORT ***
+Configuration:  3500 x 3500 x 10
+Total treasures:        476367
+Total treasure value:   18639151
+Avg treasure value:     39.13
+Treasure density:       0.00389
+Treasure value density: 0.15216
+* LAYER STATS *
+Layer#  Tot.treas       Tot.treas.val   Avg.treas.val   Treas.dens      Treas.val.dens
+     1      45311              320745            7.08      0.00370             0.02618
+     2      46715              660612           14.14      0.00381             0.05393
+     3      47439             1002217           21.13      0.00387             0.08181
+     4      48248             1357673           28.14      0.00394             0.11083
+     5      47897             1692942           35.35      0.00391             0.13820
+     6      48085             2043649           42.50      0.00393             0.16683
+     7      48291             2385107           49.39      0.00394             0.19470
+     8      48046             2725931           56.74      0.00392             0.22252
+     9      48139             3052440           63.41      0.00393             0.24918
+    10      48196             3397835           70.50      0.00393             0.27737
+Final balance: 51758
+
+Starting. Cpus: 8
+PT32.694198S. Total gold: 29094. Free: 20. Paid: 851
+Total: 753. Sum: 809. Avg: 1.0743691899070384. Max: 3. Min: 0
+PT1M2.696316S. Total gold: 53274. Free: 20. Paid: 1516
+Total: 1315. Sum: 1411. Avg: 1.0730038022813688. Max: 3. Min: 0
+request_latency_bucket{path="licenses",code="200",le="0.1",} 1516.0
+request_latency_bucket{path="licenses",code="200",le="1.0",} 1534.0
+request_latency_bucket{path="licenses",code="200",le="+Inf",} 1536.0
+request_latency_count{path="licenses",code="200",} 1536.0
+request_latency_sum{path="licenses",code="200",} 64.05023991399996
+request_latency_bucket{path="cash",code="200",le="0.1",} 1386.0
+request_latency_bucket{path="cash",code="200",le="1.0",} 1398.0
+request_latency_bucket{path="cash",code="200",le="+Inf",} 1398.0
+request_latency_count{path="cash",code="200",} 1398.0
+request_latency_sum{path="cash",code="200",} 47.92222173500006
+request_latency_bucket{path="cash",code="555",le="0.1",} 256.0
+request_latency_bucket{path="cash",code="555",le="1.0",} 256.0
+request_latency_bucket{path="cash",code="555",le="+Inf",} 258.0
+request_latency_count{path="cash",code="555",} 258.0
+request_latency_sum{path="cash",code="555",} 3.0757379249999994
+request_latency_bucket{path="licenses",code="555",le="0.1",} 250.0
+request_latency_bucket{path="licenses",code="555",le="1.0",} 258.0
+request_latency_bucket{path="licenses",code="555",le="+Inf",} 259.0
+request_latency_count{path="licenses",code="555",} 259.0
+request_latency_sum{path="licenses",code="555",} 5.039227199
+request_latency_bucket{path="licenses",code="502",le="0.1",} 63.0
+request_latency_bucket{path="licenses",code="502",le="1.0",} 63.0
+request_latency_bucket{path="licenses",code="502",le="+Inf",} 68.0
+request_latency_count{path="licenses",code="502",} 68.0
+request_latency_sum{path="licenses",code="502",} 9.181960071000002
+request_latency_bucket{path="cash",code="503",le="0.1",} 210.0
+request_latency_bucket{path="cash",code="503",le="1.0",} 211.0
+request_latency_bucket{path="cash",code="503",le="+Inf",} 211.0
+request_latency_count{path="cash",code="503",} 211.0
+request_latency_sum{path="cash",code="503",} 7.050662033000002
+request_latency_bucket{path="explore",code="200",le="0.1",} 14187.0
+request_latency_bucket{path="explore",code="200",le="1.0",} 14373.0
+request_latency_bucket{path="explore",code="200",le="+Inf",} 14389.0
+request_latency_count{path="explore",code="200",} 14389.0
+request_latency_sum{path="explore",code="200",} 611.5224809730008
+request_latency_bucket{path="licenses",code="504",le="0.1",} 44.0
+request_latency_bucket{path="licenses",code="504",le="1.0",} 44.0
+request_latency_bucket{path="licenses",code="504",le="+Inf",} 46.0
+request_latency_count{path="licenses",code="504",} 46.0
+request_latency_sum{path="licenses",code="504",} 4.169746172
+request_latency_bucket{path="explore",code="555",le="0.1",} 2792.0
+request_latency_bucket{path="explore",code="555",le="1.0",} 2803.0
+request_latency_bucket{path="explore",code="555",le="+Inf",} 2819.0
+request_latency_count{path="explore",code="555",} 2819.0
+request_latency_sum{path="explore",code="555",} 29.605859101
+request_latency_bucket{path="dig",code="404",le="0.1",} 6116.0
+request_latency_bucket{path="dig",code="404",le="1.0",} 6193.0
+request_latency_bucket{path="dig",code="404",le="+Inf",} 6194.0
+request_latency_count{path="dig",code="404",} 6194.0
+request_latency_sum{path="dig",code="404",} 232.41816173199985
+request_latency_bucket{path="dig",code="555",le="0.1",} 2434.0
+request_latency_bucket{path="dig",code="555",le="1.0",} 2435.0
+request_latency_bucket{path="dig",code="555",le="+Inf",} 2439.0
+request_latency_count{path="dig",code="555",} 2439.0
+request_latency_sum{path="dig",code="555",} 8.593981554
+request_latency_bucket{path="dig",code="200",le="0.1",} 1387.0
+request_latency_bucket{path="dig",code="200",le="1.0",} 1403.0
+request_latency_bucket{path="dig",code="200",le="+Inf",} 1405.0
+request_latency_count{path="dig",code="200",} 1405.0
+request_latency_sum{path="dig",code="200",} 63.330532831000085
+in_flight_total{path="dig",} 4.0
+in_flight_total{path="licenses",} 1.0
+in_flight_total{path="explore",} 16.0
+in_flight_total{path="cash",} 2.0
+acquire_license_bucket{le="0.01",} 7563.0
+acquire_license_bucket{le="0.05",} 7582.0
+acquire_license_bucket{le="+Inf",} 7603.0
+acquire_license_count 7603.0
+acquire_license_sum 2.2599314010000033
+gold_summary{quantile="0.25",} 1.0
+gold_summary{quantile="0.5",} 1.0
+gold_summary{quantile="0.9",} 1.0
+gold_summary_count 1315.0
+gold_summary_sum 1411.0
+process_cpu_seconds_total 94.847645
+process_start_time_seconds 1.614717230176E9
+process_open_fds 72.0
+process_max_fds 10240.0
+

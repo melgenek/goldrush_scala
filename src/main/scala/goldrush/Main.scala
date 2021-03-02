@@ -28,6 +28,8 @@ class Stats {
 
     total.incrementAndGet()
     sum.addAndGet(cellCount.toLong)
+
+    metrics.GoldSummary.observe(cellCount.toDouble)
   }
 
   override def toString: String = {
@@ -49,7 +51,7 @@ object Main extends zio.App {
   new StandardExports().register(CollectorRegistry.defaultRegistry)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
-    println(s"Starting. Cpus: $Cpus")
+    println(s"Starting. Cpus: $Cpus. Host: $Host")
     val start = LocalTime.now()
     val stats = new Stats
 
@@ -82,28 +84,6 @@ object Main extends zio.App {
     } yield ()
 
     program.provideCustomLayer(layer).exitCode
-  }
-
-  def exploreAndDig(wallet: Queue[Coin], execWithLicense: ExecWithLicense)(report: ExploreReport): URIO[MineClient with Clock, Unit] = {
-    cells(report.area)
-      .foreach { case (x, y) => exploreAndDigCell(wallet, execWithLicense)(x, y) }
-  }
-
-  def exploreAndDigCell(wallet: Queue[Coin], execWithLicense: ExecWithLicense)(x: Int, y: Int): URIO[MineClient with Clock, Int] = {
-    for {
-      cellReport <- MineClient.explore(Area(x, y, 1, 1))
-      cellFound <- if (cellReport.amount > 0) digAndExchange(wallet, execWithLicense)(cellReport) else UIO(0)
-    } yield cellFound
-  }
-
-  def digAndExchange(wallet: Queue[Coin], execWithLicense: ExecWithLicense)(report: ExploreReport): URIO[MineClient with Clock, Int] = {
-    for {
-      allGold <- dig(???)(report)
-      coins <- ZIO.foreachPar(allGold)(MineClient.cash)
-      allCoins = coins.flatten
-      _ <- ZIO.foreachPar(allCoins)(c => wallet.offer(c))
-      _ = TotalGold.addAndGet(allCoins.size.toLong)
-    } yield allGold.size
   }
 
   def dig(licenses: Queue[LicenseLease])(report: ExploreReport): ZIO[MineClient with Clock, Nothing, List[Gold]] = {
