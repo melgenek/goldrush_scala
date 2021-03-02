@@ -1,11 +1,12 @@
 package goldrush.client
 
+import com.github.plokhotnyuk.jsoniter_scala.core.readFromArray
 import goldrush.models._
-import sttp.client3._
-import sttp.client3.httpclient.zio.{HttpClientZioBackend, SttpClient}
-import sttp.model.StatusCode
 import zio.clock.Clock
-import zio.{Has, Schedule, Task, URIO, ZIO, ZLayer}
+import zio.{Schedule, Task, URIO, ZIO, ZLayer}
+
+import java.net.URI
+import java.net.http.{HttpClient, HttpResponse}
 
 object MineClient {
 
@@ -19,64 +20,41 @@ object MineClient {
     def cash(gold: Gold): Task[List[Coin]]
   }
 
-  final val Buckets = List(.1, 1)
-
   def live(host: String) =
-    HttpClientZioBackend.layer().orDie.map { c =>
-      val zioBackend = c.get[SttpClient.Service]
-      Has(MonitoringBackend.wrap(zioBackend))
-    } >+> MineClient.liveClient(host)
+    ZLayer.succeed(HttpClient.newHttpClient()) >+> MineClient.liveClient(host)
 
-  private def liveClient(host: String) =
-    ZLayer.fromService[SttpClient.Service, Service] { backend =>
+  final val EmptyGoldList = List.empty[Gold]
 
+  def jsoniterDig(r: HttpResponse[Array[Byte]]): Either[Throwable, List[Gold]] =
+    if (r.statusCode() == 200) Right(readFromArray[List[Gold]](r.body()))
+    else if (r.statusCode() == 404) Right(List.empty)
+    else Left(UnexpectedErrorCode)
+
+  private def liveClient(host: String) = {
+    val exploreUri = new URI(s"http://$host:8000/explore")
+    val licenseUri = new URI(s"http://$host:8000/licenses")
+    val digUri = new URI(s"http://$host:8000/dig")
+    val cashUri = new URI(s"http://$host:8000/cash")
+    ZLayer.fromService[HttpClient, Service] { client =>
       new Service {
         override def explore(area: Area): Task[ExploreReport] = {
-          basicRequest
-            .post(uri"http://$host:8000/explore")
-            .body(area)
-            .response(asJsoniterAlways[ExploreReport])
-            .send(backend)
-            .map(_.body)
-            .unrefineTo[Throwable]
+          client.sendRequest(exploreUri, area)(jsoniter[ExploreReport])
         }
 
         override def issueLicense(coin: Option[Coin]): Task[License] = {
-          basicRequest
-            .post(uri"http://$host:8000/licenses")
-            .body(coin.toList)
-            .response(asJsoniterAlways[License])
-            .send(backend)
-            .map(_.body)
-            .unrefineTo[Throwable]
+          client.sendRequest(licenseUri, coin.toList)(jsoniter[License])
         }
 
         override def dig(req: DigRequest): Task[List[Gold]] = {
-          basicRequest
-            .post(uri"http://$host:8000/dig")
-            .body(req)
-            .response(fromMetadata(
-              asStringAlways.map(Left(_)),
-              ConditionalResponseAs(_.code == StatusCode.Ok, asJsoniterAlways[List[Gold]].map(Right(_))),
-              ConditionalResponseAs(_.code == StatusCode.NotFound, IgnoreResponse.map(_ => Right(List.empty[Gold])))
-            ).getRight)
-            .send(backend)
-            .map(_.body)
-            .unrefineTo[Throwable]
+          client.sendRequest(digUri, req)(jsoniterDig)
         }
 
         def cash(gold: Gold): Task[List[Coin]] = {
-          basicRequest
-            .post(uri"http://$host:8000/cash")
-            .body(gold)
-            .response(asJsoniterAlways[List[Coin]])
-            .send(backend)
-            .map(_.body)
-            .unrefineTo[Throwable]
+          client.sendRequest(cashUri, gold)(jsoniter[List[Coin]])
         }
       }
     }
-
+  }
 
   def explore(area: Area): ZIO[MineClient with Clock, Nothing, ExploreReport] =
     ZIO.accessM(_.get.explore(area).retry(Schedule.forever).orDie)
@@ -89,6 +67,5 @@ object MineClient {
 
   def cash(gold: Gold): URIO[MineClient with Clock, List[Coin]] =
     ZIO.accessM(_.get.cash(gold).retry(Schedule.forever).orDie)
-
 
 }

@@ -1,0 +1,182 @@
+native http client
+
+*** CLIENT REPORT ***
+Balance:        46708
+Licenses active:        6
+Free licenses issued:   93
+Paid licenses issued:   1371
+Single cell explores done:      4764
+Single cell explores with treasures found:      1282
+Single cell explore treasure found rate:        0.26910
+Digs done:      7105
+Dig success rate:       0.18058
+Treasures found:        1283
+Total found treasure value:     48469
+Treasures exchanged:    1264
+Total exchanged treasure value: 48079
+Treasure exchange efficiency:   0.98519
+Treasures not exchanged:        19
+
+*** WORLD REPORT ***
+Configuration:  3500 x 3500 x 10
+Total treasures:        476489
+Total treasure value:   18644142
+Avg treasure value:     39.13
+Treasure density:       0.00389
+Treasure value density: 0.15220
+* LAYER STATS *
+Layer#  Tot.treas       Tot.treas.val   Avg.treas.val   Treas.dens      Treas.val.dens
+     1      45339              320993            7.08      0.00370             0.02620
+     2      46735              660894           14.14      0.00382             0.05395
+     3      47437             1001968           21.12      0.00387             0.08179
+     4      48259             1357919           28.14      0.00394             0.11085
+     5      47918             1693785           35.35      0.00391             0.13827
+     6      48117             2045162           42.50      0.00393             0.16695
+     7      48287             2385003           49.39      0.00394             0.19469
+     8      48048             2725745           56.73      0.00392             0.22251
+     9      48147             3053893           63.43      0.00393             0.24930
+    10      48202             3398780           70.51      0.00393             0.27745
+Final balance: 46708
+
+Starting. Cpus: 8. Host: localhost
+Count = 1225. Sum = 477772.0. Max = 449.0. Min = 328.0. Avg = 390.01794
+PT1M2.110422S. Total gold: 47717. Free: 93. Paid: 1358
+Total: 1185. Sum: 1302. Avg: 1.09873417721519. Max: 4. Min: 0
+jvm_threads_current 101.0
+jvm_threads_daemon 100.0
+jvm_threads_peak 101.0
+jvm_threads_started_total 101.0
+jvm_threads_deadlocked 0.0
+jvm_threads_deadlocked_monitor 0.0
+jvm_threads_state{state="NEW",} 0.0
+jvm_threads_state{state="RUNNABLE",} 7.0
+jvm_threads_state{state="TIMED_WAITING",} 86.0
+jvm_threads_state{state="TERMINATED",} 0.0
+jvm_threads_state{state="BLOCKED",} 0.0
+jvm_threads_state{state="WAITING",} 8.0
+jvm_gc_collection_seconds_count{gc="G1 Young Generation",} 13.0
+jvm_gc_collection_seconds_sum{gc="G1 Young Generation",} 0.089
+jvm_gc_collection_seconds_count{gc="G1 Old Generation",} 0.0
+jvm_gc_collection_seconds_sum{gc="G1 Old Generation",} 0.0
+in_flight_total{path="/licenses",} 5.0
+in_flight_total{path="/dig",} 20.0
+in_flight_total{path="/cash",} 0.0
+in_flight_total{path="/explore",} 0.0
+gold_summary{quantile="0.5",} 1.0
+gold_summary{quantile="0.99",} 3.0
+gold_summary_count 1185.0
+gold_summary_sum 1302.0
+request_latency_bucket{path="/dig",code="404",le="0.1",} 2436.0
+request_latency_bucket{path="/dig",code="404",le="1.0",} 5756.0
+request_latency_bucket{path="/dig",code="404",le="+Inf",} 5779.0
+request_latency_count{path="/dig",code="404",} 5779.0
+request_latency_sum{path="/dig",code="404",} 920.4820151370006
+request_latency_bucket{path="/licenses",code="409",le="0.1",} 7.0
+request_latency_bucket{path="/licenses",code="409",le="1.0",} 7.0
+request_latency_bucket{path="/licenses",code="409",le="+Inf",} 7.0
+request_latency_count{path="/licenses",code="409",} 7.0
+request_latency_sum{path="/licenses",code="409",} 0.057735599
+request_latency_bucket{path="/cash",code="555",le="0.1",} 298.0
+request_latency_bucket{path="/cash",code="555",le="1.0",} 298.0
+request_latency_bucket{path="/cash",code="555",le="+Inf",} 298.0
+request_latency_count{path="/cash",code="555",} 298.0
+request_latency_sum{path="/cash",code="555",} 0.4368844239999998
+request_latency_bucket{path="/cash",code="503",le="0.1",} 95.0
+request_latency_bucket{path="/cash",code="503",le="1.0",} 166.0
+request_latency_bucket{path="/cash",code="503",le="+Inf",} 166.0
+request_latency_count{path="/cash",code="503",} 166.0
+request_latency_sum{path="/cash",code="503",} 15.964720990999997
+request_latency_bucket{path="/licenses",code="504",le="0.1",} 464.0
+request_latency_bucket{path="/licenses",code="504",le="1.0",} 497.0
+request_latency_bucket{path="/licenses",code="504",le="+Inf",} 497.0
+request_latency_count{path="/licenses",code="504",} 497.0
+request_latency_sum{path="/licenses",code="504",} 13.204450357999997
+request_latency_bucket{path="/cash",code="200",le="0.1",} 584.0
+request_latency_bucket{path="/cash",code="200",le="1.0",} 1253.0
+request_latency_bucket{path="/cash",code="200",le="+Inf",} 1257.0
+request_latency_count{path="/cash",code="200",} 1257.0
+request_latency_sum{path="/cash",code="200",} 183.83614571799984
+request_latency_bucket{path="/dig",code="555",le="0.1",} 3004.0
+request_latency_bucket{path="/dig",code="555",le="1.0",} 3005.0
+request_latency_bucket{path="/dig",code="555",le="+Inf",} 3005.0
+request_latency_count{path="/dig",code="555",} 3005.0
+request_latency_sum{path="/dig",code="555",} 3.203004254000008
+request_latency_bucket{path="/dig",code="200",le="0.1",} 571.0
+request_latency_bucket{path="/dig",code="200",le="1.0",} 1270.0
+request_latency_bucket{path="/dig",code="200",le="+Inf",} 1271.0
+request_latency_count{path="/dig",code="200",} 1271.0
+request_latency_sum{path="/dig",code="200",} 146.79047796900005
+request_latency_bucket{path="/licenses",code="555",le="0.1",} 760.0
+request_latency_bucket{path="/licenses",code="555",le="1.0",} 760.0
+request_latency_bucket{path="/licenses",code="555",le="+Inf",} 760.0
+request_latency_count{path="/licenses",code="555",} 760.0
+request_latency_sum{path="/licenses",code="555",} 0.9239112809999998
+request_latency_bucket{path="/explore",code="555",le="0.1",} 2030.0
+request_latency_bucket{path="/explore",code="555",le="1.0",} 2061.0
+request_latency_bucket{path="/explore",code="555",le="+Inf",} 2061.0
+request_latency_count{path="/explore",code="555",} 2061.0
+request_latency_sum{path="/explore",code="555",} 9.289154881999995
+request_latency_bucket{path="/licenses",code="502",le="0.1",} 1061.0
+request_latency_bucket{path="/licenses",code="502",le="1.0",} 1114.0
+request_latency_bucket{path="/licenses",code="502",le="+Inf",} 1114.0
+request_latency_count{path="/licenses",code="502",} 1114.0
+request_latency_sum{path="/licenses",code="502",} 27.130434638999986
+request_latency_bucket{path="/licenses",code="200",le="0.1",} 610.0
+request_latency_bucket{path="/licenses",code="200",le="1.0",} 1446.0
+request_latency_bucket{path="/licenses",code="200",le="+Inf",} 1452.0
+request_latency_count{path="/licenses",code="200",} 1452.0
+request_latency_sum{path="/licenses",code="200",} 233.4415587780002
+request_latency_bucket{path="/explore",code="200",le="0.1",} 4432.0
+request_latency_bucket{path="/explore",code="200",le="1.0",} 13194.0
+request_latency_bucket{path="/explore",code="200",le="+Inf",} 13259.0
+request_latency_count{path="/explore",code="200",} 13259.0
+request_latency_sum{path="/explore",code="200",} 2058.765427868002
+process_cpu_seconds_total 62.25392
+process_start_time_seconds 1.614724551757E9
+process_open_fds 74.0
+process_max_fds 10240.0
+jvm_memory_bytes_used{area="heap",} 2.11812352E8
+jvm_memory_bytes_used{area="nonheap",} 6.9263064E7
+jvm_memory_bytes_committed{area="heap",} 7.7594624E8
+jvm_memory_bytes_committed{area="nonheap",} 7.5825152E7
+jvm_memory_bytes_max{area="heap",} 8.589934592E9
+jvm_memory_bytes_max{area="nonheap",} -1.0
+jvm_memory_bytes_init{area="heap",} 5.36870912E8
+jvm_memory_bytes_init{area="nonheap",} 7667712.0
+jvm_memory_pool_bytes_used{pool="CodeHeap 'non-nmethods'",} 1265152.0
+jvm_memory_pool_bytes_used{pool="Metaspace",} 3.9153048E7
+jvm_memory_pool_bytes_used{pool="CodeHeap 'profiled nmethods'",} 1.71008E7
+jvm_memory_pool_bytes_used{pool="Compressed Class Space",} 5136192.0
+jvm_memory_pool_bytes_used{pool="G1 Eden Space",} 1.97132288E8
+jvm_memory_pool_bytes_used{pool="G1 Old Gen",} 0.0
+jvm_memory_pool_bytes_used{pool="G1 Survivor Space",} 1.4680064E7
+jvm_memory_pool_bytes_used{pool="CodeHeap 'non-profiled nmethods'",} 6607872.0
+jvm_memory_pool_bytes_committed{pool="CodeHeap 'non-nmethods'",} 2555904.0
+jvm_memory_pool_bytes_committed{pool="Metaspace",} 4.2860544E7
+jvm_memory_pool_bytes_committed{pool="CodeHeap 'profiled nmethods'",} 1.7104896E7
+jvm_memory_pool_bytes_committed{pool="Compressed Class Space",} 6684672.0
+jvm_memory_pool_bytes_committed{pool="G1 Eden Space",} 4.76053504E8
+jvm_memory_pool_bytes_committed{pool="G1 Old Gen",} 2.85212672E8
+jvm_memory_pool_bytes_committed{pool="G1 Survivor Space",} 1.4680064E7
+jvm_memory_pool_bytes_committed{pool="CodeHeap 'non-profiled nmethods'",} 6619136.0
+jvm_memory_pool_bytes_max{pool="CodeHeap 'non-nmethods'",} 5836800.0
+jvm_memory_pool_bytes_max{pool="Metaspace",} -1.0
+jvm_memory_pool_bytes_max{pool="CodeHeap 'profiled nmethods'",} 1.22908672E8
+jvm_memory_pool_bytes_max{pool="Compressed Class Space",} 1.073741824E9
+jvm_memory_pool_bytes_max{pool="G1 Eden Space",} -1.0
+jvm_memory_pool_bytes_max{pool="G1 Old Gen",} 8.589934592E9
+jvm_memory_pool_bytes_max{pool="G1 Survivor Space",} -1.0
+jvm_memory_pool_bytes_max{pool="CodeHeap 'non-profiled nmethods'",} 1.22912768E8
+jvm_memory_pool_bytes_init{pool="CodeHeap 'non-nmethods'",} 2555904.0
+jvm_memory_pool_bytes_init{pool="Metaspace",} 0.0
+jvm_memory_pool_bytes_init{pool="CodeHeap 'profiled nmethods'",} 2555904.0
+jvm_memory_pool_bytes_init{pool="Compressed Class Space",} 0.0
+jvm_memory_pool_bytes_init{pool="G1 Eden Space",} 2.7262976E7
+jvm_memory_pool_bytes_init{pool="G1 Old Gen",} 5.09607936E8
+jvm_memory_pool_bytes_init{pool="G1 Survivor Space",} 0.0
+jvm_memory_pool_bytes_init{pool="CodeHeap 'non-profiled nmethods'",} 2555904.0
+acquire_license_bucket{le="0.01",} 6341.0
+acquire_license_bucket{le="0.05",} 6628.0
+acquire_license_bucket{le="+Inf",} 7071.0
+acquire_license_count 7071.0
+acquire_license_sum 117.53237544099993

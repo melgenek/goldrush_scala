@@ -5,7 +5,7 @@ import goldrush.client.MineClient
 import goldrush.models._
 import io.prometheus.client.CollectorRegistry
 import io.prometheus.client.exporter.common.TextFormat
-import io.prometheus.client.hotspot.{GarbageCollectorExports, MemoryPoolsExports, StandardExports, ThreadExports}
+import io.prometheus.client.hotspot.{GarbageCollectorExports, MemoryAllocationExports, StandardExports, ThreadExports}
 import zio.clock.Clock
 import zio.duration._
 import zio.stream.{UStream, ZStream}
@@ -52,7 +52,7 @@ object Main extends zio.App {
   new StandardExports().register(CollectorRegistry.defaultRegistry)
   new ThreadExports().register(CollectorRegistry.defaultRegistry)
   new GarbageCollectorExports().register(CollectorRegistry.defaultRegistry)
-  new MemoryPoolsExports().register(CollectorRegistry.defaultRegistry)
+  new MemoryAllocationExports().register(CollectorRegistry.defaultRegistry)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     println(s"Starting. Cpus: $Cpus. Host: $Host")
@@ -71,8 +71,8 @@ object Main extends zio.App {
         .foreach(_ => printMetrics())
         .forkDaemon
 
-      wideReports <- areas(Area(0, 0, Width, Width), 250)
-        .mapMPar(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 250, 250)) }
+      wideReports <- areas(Area(0, 0, Width, Width), 100)
+        .mapMPar(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 100, 100)) }
         .runCollect
       _ <- printStatsAndGetAverage(wideReports)
       orderedWideAreas = wideReports.sortBy(_.amount)(Ordering[Int].reverse)
@@ -88,7 +88,6 @@ object Main extends zio.App {
         .filterNot(_.isEmpty)
         .mapMPar(Parallelism)(dig(licenses))
         .mapConcat(identity)
-        .buffer(5000)
         .mapMPar(Cpus)(MineClient.cash)
         .mapConcat(identity)
         .foreach { coin => wallet.offer(coin).as(TotalGold.incrementAndGet()) }

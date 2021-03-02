@@ -1,8 +1,6 @@
 package goldrush.client
 
-import goldrush.client.MineClient.Buckets
-import goldrush.metrics.elapsedSeconds
-import io.prometheus.client.{Collector, CollectorRegistry, Gauge, Histogram}
+import goldrush.metrics.{InFlight, RequestLatencies, elapsedSeconds}
 import sttp.capabilities.zio.ZioStreams
 import sttp.capabilities.{Effect, WebSockets}
 import sttp.client3.httpclient.zio.SttpClient
@@ -46,23 +44,6 @@ object MonitoringBackend {
       RequestLatencies.labels(path(request), response.code.code.toString).observe(elapsedSeconds(start))
     }
   }
-
-  final val Labels = List("path", "code")
-
-  val RequestLatencies: Histogram = Histogram
-    .build()
-    .buckets(Buckets: _*)
-    .name("request_latency")
-    .labelNames(Labels: _*)
-    .help("request_latency")
-    .register(CollectorRegistry.defaultRegistry)
-
-  val InFlight: Gauge = Gauge
-    .build()
-    .name("in_flight_total")
-    .labelNames("path")
-    .help("in_flight_total")
-    .register(CollectorRegistry.defaultRegistry)
 
   def path(request: Request[_, _]): String = request.uri.path.mkString("/")
 
