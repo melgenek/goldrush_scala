@@ -1,5 +1,7 @@
 package goldrush.client
 
+import goldrush.client.MineClient.Buckets
+import goldrush.metrics.elapsedSeconds
 import io.prometheus.client.{Collector, CollectorRegistry, Gauge, Histogram}
 import sttp.capabilities.zio.ZioStreams
 import sttp.capabilities.{Effect, WebSockets}
@@ -45,7 +47,6 @@ object MonitoringBackend {
     }
   }
 
-  final val Buckets = List(.1, 1)
   final val Labels = List("path", "code")
 
   val RequestLatencies: Histogram = Histogram
@@ -64,8 +65,5 @@ object MonitoringBackend {
     .register(CollectorRegistry.defaultRegistry)
 
   def path(request: Request[_, _]): String = request.uri.path.mkString("/")
-
-  def elapsedSeconds(startNanos: Long): Double =
-    (System.nanoTime() - startNanos) / Collector.NANOSECONDS_PER_SECOND
 
 }

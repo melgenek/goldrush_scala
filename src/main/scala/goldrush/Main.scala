@@ -13,8 +13,6 @@ import zio.{Chunk, ExitCode, Queue, UIO, URIO, ZIO}
 
 import java.io.StringWriter
 import java.time.{Duration, LocalTime}
-import java.util.Comparator
-import java.util.concurrent.PriorityBlockingQueue
 import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 
 class Stats {
@@ -57,10 +55,6 @@ object Main extends zio.App {
 
     val layer = MineClient.live(Host)
 
-    val queue = new PriorityBlockingQueue[ExploreReport](50, new Comparator[ExploreReport] {
-      override def compare(r1: ExploreReport, r2: ExploreReport): Int = r2.amount.compareTo(r1.amount)
-    })
-
     val program = for {
       _ <- ZStream.tick(if (IsLocal) 30.second else 30.second)
         .drop(1)
@@ -71,23 +65,17 @@ object Main extends zio.App {
         .foreach(_ => printMetrics())
         .forkDaemon
 
+      (wallet, licenses) <- LicensePool.make
       _ <- areas(Step)
         .mapMPar(Cpus) { case (x, y) => MineClient.explore(Area(x, y, Step, Step)) }
         .filterNot(_.isEmpty)
         .tap(r => UIO(stats.observe(r.amount)))
-        .foreach(r => UIO(queue.put(r)))
-        .fork
-
-      (wallet, licenses) <- LicensePool.make
-      _ <- ZStream.repeat(queue.take())
         .flatMap(r => cells(r.area))
         .mapMPar(Cpus) { case (x, y) => MineClient.explore(Area(x, y, 1, 1)) }
         .filterNot(_.isEmpty)
         .mapMPar(Cpus)(dig(licenses))
         .mapConcat(identity)
-        .buffer(1000)
-        .throttleShape(1000, 1.second)(_.size)
-        .mapMPar(Cpus * 4)(gold => zio.blocking.blocking(MineClient.cash(gold)))
+        .mapMPar(Cpus)(MineClient.cash)
         .mapConcat(identity)
         .bufferDropping(100)
         .foreach { coin => wallet.offer(coin).as(TotalGold.incrementAndGet()) }
@@ -123,7 +111,7 @@ object Main extends zio.App {
       if (acc.size >= report.amount) UIO(acc)
       else {
         for {
-          lease <- licenses.take
+          lease <- metrics.measure(licenses.take, metrics.LicenseAcquisition)
           gold <- MineClient.dig(DigRequest(lease.licenseId, report.area.posX, report.area.posY, depth))
           _ <- lease.requestMore
         } yield acc ++ gold
