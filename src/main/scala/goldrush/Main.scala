@@ -5,7 +5,7 @@ import goldrush.client.MineClient
 import goldrush.models._
 import io.prometheus.client.CollectorRegistry
 import io.prometheus.client.exporter.common.TextFormat
-import io.prometheus.client.hotspot.StandardExports
+import io.prometheus.client.hotspot.{GarbageCollectorExports, StandardExports, ThreadExports}
 import zio.clock.Clock
 import zio.duration._
 import zio.stream.{UStream, ZStream}
@@ -42,13 +42,16 @@ class Stats {
 
 object Main extends zio.App {
   final val Width = 3500
-  final val Step = 2
   final val Host = sys.env.getOrElse("ADDRESS", "localhost")
   final val IsLocal = !sys.env.contains("ADDRESS")
   final val Cpus = Runtime.getRuntime.availableProcessors()
   final val TotalGold = new AtomicLong()
 
+  final val Parallelism = Cpus * 4
+
   new StandardExports().register(CollectorRegistry.defaultRegistry)
+  new ThreadExports().register(CollectorRegistry.defaultRegistry)
+  new GarbageCollectorExports().register(CollectorRegistry.defaultRegistry)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     println(s"Starting. Cpus: $Cpus. Host: $Host")
@@ -67,17 +70,24 @@ object Main extends zio.App {
         .foreach(_ => printMetrics())
         .forkDaemon
 
+      wideReports <- areas(Area(0, 0, Width, Width), 100)
+        .mapMPar(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 100, 100)) }
+        .runCollect
+      _ <- printStatsAndGetAverage(wideReports)
+      orderedWideAreas = wideReports.sortBy(_.amount)(Ordering[Int].reverse)
+
       (wallet, licenses) <- LicensePool.make
-      _ <- areas(Step)
-        .mapMPar(Cpus) { case (x, y) => MineClient.explore(Area(x, y, Step, Step)) }
+      _ <- ZStream.fromChunk(orderedWideAreas)
+        .flatMap(r => areas(r.area, 2))
+        .mapMPar(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 2, 2)) }
         .filterNot(_.isEmpty)
         .tap(r => UIO(stats.observe(r.amount)))
-        .flatMap(r => cells(r.area))
-        .mapMPar(Cpus) { case (x, y) => MineClient.explore(Area(x, y, 1, 1)) }
+        .flatMap(r => areas(r.area, 1))
+        .mapMPar(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 1, 1)) }
         .filterNot(_.isEmpty)
-        .mapMPar(Cpus)(dig(licenses))
+        .mapMPar(Parallelism)(dig(licenses))
         .mapConcat(identity)
-        .mapMPar(Cpus)(MineClient.cash)
+        .mapMPar(Parallelism)(MineClient.cash)
         .mapConcat(identity)
         .bufferDropping(100)
         .foreach { coin => wallet.offer(coin).as(TotalGold.incrementAndGet()) }
@@ -99,14 +109,9 @@ object Main extends zio.App {
     }
   }
 
-  def areas(step: Int): UStream[(Int, Int)] = {
-    val row = ZStream.iterate(0)(_ + step).take(Width / step)
-    row.cross(row)
-  }
-
-  def cells(area: Area): UStream[(Int, Int)] = {
-    val row = ZStream.iterate(area.posX)(_ + 1).take(area.sizeX)
-    val column = ZStream.iterate(area.posY)(_ + 1).take(area.sizeY)
+  def areas(area: Area, step: Int): UStream[(Int, Int)] = {
+    val row = ZStream.iterate(area.posX)(_ + step).take(area.sizeX / step)
+    val column = ZStream.iterate(area.posY)(_ + step).take(area.sizeY / step)
     row.cross(column)
   }
 

@@ -47,7 +47,7 @@ object LicensePool {
       _ <- licenseRequests.offer(()).repeatN(MaxLicenses - 1)
       licenses <- ZQueue.bounded[LicenseLease](MaxLicenses * 5)
       _ <- ZStream.fromQueueWithShutdown(licenseRequests)
-        .mapMPar(Main.Cpus) { _ =>
+        .mapMPar(Main.Parallelism) { _ =>
           for {
             coin <- wallet.poll
             license <- MineClient.issueLicense(coin)

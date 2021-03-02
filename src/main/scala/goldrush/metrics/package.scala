@@ -15,9 +15,8 @@ package object metrics {
 
   val GoldSummary: Summary = Summary
     .build("gold_summary", "gold_summary")
-    .quantile(0.25, 0.01)
     .quantile(0.5, 0.01)
-    .quantile(0.9, 0.01)
+    .quantile(0.99, 0.01)
     .register(CollectorRegistry.defaultRegistry)
 
   def measure[A](f: => UIO[A], histogram: Histogram): UIO[A] = {
