@@ -1,6 +1,6 @@
 package goldrush
 
-import goldrush.LicensePool.ExecWithLicense
+import goldrush.LicensePool.{ExecWithLicense, FreeLicenses, PaidLicenses}
 import goldrush.client.MineClient
 import goldrush.models._
 import io.prometheus.client.CollectorRegistry
@@ -15,7 +15,30 @@ import java.io.StringWriter
 import java.time.{Duration, LocalTime}
 import java.util.Comparator
 import java.util.concurrent.PriorityBlockingQueue
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
+
+class Stats {
+  private val min = new AtomicInteger()
+  private val max = new AtomicInteger()
+
+  private val total = new AtomicLong()
+  private val sum = new AtomicLong()
+
+  def observe(cellCount: Int): Unit = {
+    if (min.get() > cellCount) min.set(cellCount)
+    if (max.get() < cellCount) max.set(cellCount)
+
+    total.incrementAndGet()
+    sum.addAndGet(cellCount.toLong)
+  }
+
+  override def toString: String = {
+    val t = total.get()
+    val s = sum.get()
+    val avg = s.toDouble / t.toDouble
+    s"Total: $t. Sum: $s. Avg: $avg. Max: ${max.get()}. Min: ${min.get()}"
+  }
+}
 
 object Main extends zio.App {
   final val Width = 3500
@@ -30,6 +53,7 @@ object Main extends zio.App {
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     println(s"Starting. Cpus: $Cpus")
     val start = LocalTime.now()
+    val stats = new Stats
 
     val layer = MineClient.live(Host)
 
@@ -38,9 +62,9 @@ object Main extends zio.App {
     })
 
     val program = for {
-      _ <- ZStream.tick(if (IsLocal) 10.second else 30.second)
+      _ <- ZStream.tick(if (IsLocal) 30.second else 30.second)
         .drop(1)
-        .foreach(_ => debug(start))
+        .foreach(_ => debug(start, stats))
         .forkDaemon
       _ <- ZStream.tick(if (IsLocal) 60.second else 9.minutes)
         .drop(1)
@@ -50,6 +74,7 @@ object Main extends zio.App {
       _ <- areas(Step)
         .mapMPar(Cpus) { case (x, y) => MineClient.explore(Area(x, y, Step, Step)) }
         .filterNot(_.isEmpty)
+        .tap(r => UIO(stats.observe(r.amount)))
         .foreach(r => UIO(queue.put(r)))
         .fork
 
@@ -117,16 +142,20 @@ object Main extends zio.App {
     row.cross(column)
   }
 
-  private def debug(start: LocalTime) = UIO {
+  private def debug(start: LocalTime, stats: Stats) = UIO {
     val now = LocalTime.now()
     val timePassed = Duration.between(start, now)
-    println(s"$timePassed. Total: ${TotalGold.get()}")
+    println(s"$timePassed. Total gold: ${TotalGold.get()}. Free: ${FreeLicenses.get()}. Paid: ${PaidLicenses.get()}")
+    println(stats)
   }
 
   private def printMetrics() = UIO {
     val writer = new StringWriter()
     TextFormat.write004(writer, CollectorRegistry.defaultRegistry.metricFamilySamples())
-    println(writer.toString)
+    val output = writer.toString.split("\n")
+      .filterNot(line => line.startsWith("#") || line.contains("_created"))
+      .mkString("\n")
+    println(output)
   }
 
   private def printStatsAndGetAverage(reports: Chunk[ExploreReport]): UIO[Float] = UIO {

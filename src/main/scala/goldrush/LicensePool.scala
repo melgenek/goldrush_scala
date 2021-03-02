@@ -6,6 +6,8 @@ import zio._
 import zio.clock.Clock
 import zio.stream.ZStream
 
+import java.util.concurrent.atomic.AtomicInteger
+
 object LicensePool {
   final val MaxLicenses = 10
 
@@ -35,6 +37,9 @@ object LicensePool {
     })
   }
 
+  final val FreeLicenses = new AtomicInteger()
+  final val PaidLicenses = new AtomicInteger()
+
   def make: URIO[MineClient with Clock, (Queue[Coin], Queue[LicenseLease])] = {
     for {
       wallet <- ZQueue.dropping[Coin](MaxLicenses * 2)
@@ -50,7 +55,7 @@ object LicensePool {
               if (i == license.digAllowed) licenses.offer(LicenseLease(license.id, licenseRequests.offer(()).unit))
               else licenses.offer(LicenseLease(license.id, UIO.unit))
             }
-          } yield ()
+          } yield coin.fold(FreeLicenses.incrementAndGet())(_ => PaidLicenses.incrementAndGet())
         }
         .runDrain
         .fork

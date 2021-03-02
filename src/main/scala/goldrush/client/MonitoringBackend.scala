@@ -1,36 +1,45 @@
 package goldrush.client
 
 import io.prometheus.client.{Collector, CollectorRegistry, Gauge, Histogram}
-import sttp.client3.listener.{ListenerBackend, RequestListener}
-import sttp.client3.{FollowRedirectsBackend, Identity, Request, Response, SttpBackend}
+import sttp.capabilities.zio.ZioStreams
+import sttp.capabilities.{Effect, WebSockets}
+import sttp.client3.httpclient.zio.SttpClient
+import sttp.client3.{DelegateSttpBackend, DeserializationException, HttpError, Identity, Request, Response}
+import zio.{Task, UIO}
 
 object MonitoringBackend {
 
-  def apply[F[_], P](delegate: SttpBackend[F, P]): SttpBackend[F, P] = {
-    new FollowRedirectsBackend[F, P](
-      new ListenerBackend[F, P, Long](
-        delegate,
-        RequestListener.lift(
-          new MonitoringListener,
-          delegate.responseMonad
-        )
-      )
-    )
-  }
+  def wrap(delegate: SttpClient.Service): SttpClient.Service =
+    new DelegateSttpBackend[Task, ZioStreams with WebSockets](delegate) {
+      override def send[T, R >: ZioStreams with WebSockets with Effect[Task]](request: Request[T, R]): Task[Response[T]] = {
+        for {
+          start <- UIO(MonitoringListener.beforeRequest(request))
+          response <- delegate.send(request)
+            .unrefineTo[Throwable]
+            .tapError(e => UIO(MonitoringListener.requestException(request, start, e)))
+            .tap(response => UIO(MonitoringListener.requestSuccessful(request, response, start)))
+        } yield response
+      }
+    }
 
-  class MonitoringListener extends RequestListener[Identity, Long] {
-    override def beforeRequest(request: Request[_, _]): Identity[Long] = {
+  object MonitoringListener {
+    def beforeRequest(request: Request[_, _]): Identity[Long] = {
       val start = System.nanoTime()
       InFlight.labels(path(request)).inc()
       start
     }
 
-    override def requestException(request: Request[_, _], start: Long, e: Exception): Identity[Unit] = {
+    def requestException(request: Request[_, _], start: Long, e: Throwable): Identity[Unit] = {
       InFlight.labels(path(request)).dec()
-      RequestLatencies.labels(path(request), "555").observe(elapsedSeconds(start))
+      val code = e match {
+        case HttpError(_, code) => code.code
+        case _: DeserializationException[_] => 554
+        case _ => 555
+      }
+      RequestLatencies.labels(path(request), code.toString).observe(elapsedSeconds(start))
     }
 
-    override def requestSuccessful(request: Request[_, _], response: Response[_], start: Long): Identity[Unit] = {
+    def requestSuccessful(request: Request[_, _], response: Response[_], start: Long): Identity[Unit] = {
       InFlight.labels(path(request)).dec()
       RequestLatencies.labels(path(request), response.code.code.toString).observe(elapsedSeconds(start))
     }

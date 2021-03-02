@@ -24,7 +24,7 @@ object MineClient {
   def live(host: String) =
     HttpClientZioBackend.layer().orDie.map { c =>
       val zioBackend = c.get[SttpClient.Service]
-      Has(MonitoringBackend(zioBackend))
+      Has(MonitoringBackend.wrap(zioBackend))
     } >+> MineClient.liveClient(host)
 
   private def liveClient(host: String) =
@@ -80,7 +80,6 @@ object MineClient {
 
   def explore(area: Area): ZIO[MineClient with Clock, Nothing, ExploreReport] =
     ZIO.accessM(_.get.explore(area).retry(Schedule.forever).orDie)
-
 
   def dig(digRequest: DigRequest): URIO[MineClient with Clock, List[Gold]] =
     ZIO.accessM(_.get.dig(digRequest).retry(Schedule.forever).orDie)
