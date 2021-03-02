@@ -1,0 +1,143 @@
+5000 buffer before cash
+
+*** CLIENT REPORT ***
+Balance:        54235
+Licenses active:        6
+Free licenses issued:   25
+Paid licenses issued:   1553
+Single cell explores done:      5216
+Single cell explores with treasures found:      1400
+Single cell explore treasure found rate:        0.26840
+Digs done:      7810
+Dig success rate:       0.17849
+Treasures found:        1394
+Total found treasure value:     56019
+Treasures exchanged:    1381
+Total exchanged treasure value: 55788
+Treasure exchange efficiency:   0.99067
+Treasures not exchanged:        13
+
+*** WORLD REPORT ***
+Configuration:  3500 x 3500 x 10
+Total treasures:        476378
+Total treasure value:   18636592
+Avg treasure value:     39.12
+Treasure density:       0.00389
+Treasure value density: 0.15214
+* LAYER STATS *
+Layer#  Tot.treas       Tot.treas.val   Avg.treas.val   Treas.dens      Treas.val.dens
+     1      45325              320851            7.08      0.00370             0.02619
+     2      46719              660750           14.14      0.00381             0.05394
+     3      47449             1002086           21.12      0.00387             0.08180
+     4      48260             1358278           28.15      0.00394             0.11088
+     5      47882             1692195           35.34      0.00391             0.13814
+     6      48114             2044552           42.49      0.00393             0.16690
+     7      48283             2383422           49.36      0.00394             0.19457
+     8      48027             2724922           56.74      0.00392             0.22244
+     9      48130             3051807           63.41      0.00393             0.24913
+    10      48189             3397729           70.51      0.00393             0.27737
+Final balance: 54235
+
+Starting. Cpus: 8. Host: localhost
+Count = 196. Sum = 477772.0. Max = 2574.0. Min = 2301.0. Avg = 2437.6123
+PT1M2.082833S. Total gold: 54206. Free: 25. Paid: 1526
+Total: 1276. Sum: 1392. Avg: 1.0909090909090908. Max: 3. Min: 0
+jvm_threads_current 106.0
+jvm_threads_daemon 105.0
+jvm_threads_peak 106.0
+jvm_threads_started_total 106.0
+jvm_threads_deadlocked 0.0
+jvm_threads_deadlocked_monitor 0.0
+jvm_threads_state{state="NEW",} 0.0
+jvm_threads_state{state="RUNNABLE",} 9.0
+jvm_threads_state{state="TIMED_WAITING",} 90.0
+jvm_threads_state{state="TERMINATED",} 0.0
+jvm_threads_state{state="BLOCKED",} 0.0
+jvm_threads_state{state="WAITING",} 7.0
+jvm_gc_collection_seconds_count{gc="G1 Young Generation",} 19.0
+jvm_gc_collection_seconds_sum{gc="G1 Young Generation",} 0.162
+jvm_gc_collection_seconds_count{gc="G1 Old Generation",} 0.0
+jvm_gc_collection_seconds_sum{gc="G1 Old Generation",} 0.0
+gold_summary{quantile="0.5",} 1.0
+gold_summary{quantile="0.99",} 2.0
+gold_summary_count 1276.0
+gold_summary_sum 1392.0
+in_flight_total{path="dig",} 15.0
+in_flight_total{path="licenses",} 4.0
+in_flight_total{path="explore",} 0.0
+in_flight_total{path="cash",} 1.0
+process_cpu_seconds_total 93.105395
+process_start_time_seconds 1.614720107058E9
+process_open_fds 69.0
+process_max_fds 10240.0
+acquire_license_bucket{le="0.01",} 7179.0
+acquire_license_bucket{le="0.05",} 7501.0
+acquire_license_bucket{le="+Inf",} 7697.0
+acquire_license_count 7697.0
+acquire_license_sum 32.566806248999995
+request_latency_bucket{path="licenses",code="200",le="0.1",} 488.0
+request_latency_bucket{path="licenses",code="200",le="1.0",} 1548.0
+request_latency_bucket{path="licenses",code="200",le="+Inf",} 1552.0
+request_latency_count{path="licenses",code="200",} 1552.0
+request_latency_sum{path="licenses",code="200",} 228.68617959099979
+request_latency_bucket{path="cash",code="200",le="0.1",} 470.0
+request_latency_bucket{path="cash",code="200",le="1.0",} 1345.0
+request_latency_bucket{path="cash",code="200",le="+Inf",} 1348.0
+request_latency_count{path="cash",code="200",} 1348.0
+request_latency_sum{path="cash",code="200",} 190.29488899900005
+request_latency_bucket{path="cash",code="555",le="0.1",} 209.0
+request_latency_bucket{path="cash",code="555",le="1.0",} 209.0
+request_latency_bucket{path="cash",code="555",le="+Inf",} 209.0
+request_latency_count{path="cash",code="555",} 209.0
+request_latency_sum{path="cash",code="555",} 0.3088524030000001
+request_latency_bucket{path="licenses",code="555",le="0.1",} 262.0
+request_latency_bucket{path="licenses",code="555",le="1.0",} 262.0
+request_latency_bucket{path="licenses",code="555",le="+Inf",} 262.0
+request_latency_count{path="licenses",code="555",} 262.0
+request_latency_sum{path="licenses",code="555",} 0.3817343270000001
+request_latency_bucket{path="licenses",code="502",le="0.1",} 33.0
+request_latency_bucket{path="licenses",code="502",le="1.0",} 62.0
+request_latency_bucket{path="licenses",code="502",le="+Inf",} 62.0
+request_latency_count{path="licenses",code="502",} 62.0
+request_latency_sum{path="licenses",code="502",} 6.416842909000002
+request_latency_bucket{path="cash",code="503",le="0.1",} 75.0
+request_latency_bucket{path="cash",code="503",le="1.0",} 199.0
+request_latency_bucket{path="cash",code="503",le="+Inf",} 201.0
+request_latency_count{path="cash",code="503",} 201.0
+request_latency_sum{path="cash",code="503",} 38.578774517
+request_latency_bucket{path="explore",code="200",le="0.1",} 2949.0
+request_latency_bucket{path="explore",code="200",le="1.0",} 13674.0
+request_latency_bucket{path="explore",code="200",le="+Inf",} 13724.0
+request_latency_count{path="explore",code="200",} 13724.0
+request_latency_sum{path="explore",code="200",} 2153.2225282389954
+request_latency_bucket{path="licenses",code="504",le="0.1",} 17.0
+request_latency_bucket{path="licenses",code="504",le="1.0",} 37.0
+request_latency_bucket{path="licenses",code="504",le="+Inf",} 37.0
+request_latency_count{path="licenses",code="504",} 37.0
+request_latency_sum{path="licenses",code="504",} 4.320146663999999
+request_latency_bucket{path="explore",code="555",le="0.1",} 1581.0
+request_latency_bucket{path="explore",code="555",le="1.0",} 1614.0
+request_latency_bucket{path="explore",code="555",le="+Inf",} 1614.0
+request_latency_count{path="explore",code="555",} 1614.0
+request_latency_sum{path="explore",code="555",} 11.441500457000004
+request_latency_bucket{path="licenses",code="409",le="0.1",} 2.0
+request_latency_bucket{path="licenses",code="409",le="1.0",} 2.0
+request_latency_bucket{path="licenses",code="409",le="+Inf",} 2.0
+request_latency_count{path="licenses",code="409",} 2.0
+request_latency_sum{path="licenses",code="409",} 0.017005204
+request_latency_bucket{path="dig",code="404",le="0.1",} 2063.0
+request_latency_bucket{path="dig",code="404",le="1.0",} 6299.0
+request_latency_bucket{path="dig",code="404",le="+Inf",} 6315.0
+request_latency_count{path="dig",code="404",} 6315.0
+request_latency_sum{path="dig",code="404",} 920.256904507
+request_latency_bucket{path="dig",code="555",le="0.1",} 2150.0
+request_latency_bucket{path="dig",code="555",le="1.0",} 2151.0
+request_latency_bucket{path="dig",code="555",le="+Inf",} 2151.0
+request_latency_count{path="dig",code="555",} 2151.0
+request_latency_sum{path="dig",code="555",} 3.2279861000000016
+request_latency_bucket{path="dig",code="200",le="0.1",} 457.0
+request_latency_bucket{path="dig",code="200",le="1.0",} 1362.0
+request_latency_bucket{path="dig",code="200",le="+Inf",} 1367.0
+request_latency_count{path="dig",code="200",} 1367.0
+request_latency_sum{path="dig",code="200",} 207.190369095
+

@@ -1,3 +1,5 @@
+100 x 100
+
 Starting. Cpus: 8. Host: localhost
 Count = 1225. Sum = 477772.0. Max = 449.0. Min = 328.0. Avg = 390.01794
 PT32.154373S. Total gold: 23759. Free: 97. Paid: 675

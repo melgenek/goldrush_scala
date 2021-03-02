@@ -1,11 +1,11 @@
 package goldrush
 
-import goldrush.LicensePool.{ExecWithLicense, FreeLicenses, PaidLicenses}
+import goldrush.LicensePool.{FreeLicenses, PaidLicenses}
 import goldrush.client.MineClient
 import goldrush.models._
 import io.prometheus.client.CollectorRegistry
 import io.prometheus.client.exporter.common.TextFormat
-import io.prometheus.client.hotspot.{GarbageCollectorExports, StandardExports, ThreadExports}
+import io.prometheus.client.hotspot.{GarbageCollectorExports, MemoryPoolsExports, StandardExports, ThreadExports}
 import zio.clock.Clock
 import zio.duration._
 import zio.stream.{UStream, ZStream}
@@ -52,6 +52,7 @@ object Main extends zio.App {
   new StandardExports().register(CollectorRegistry.defaultRegistry)
   new ThreadExports().register(CollectorRegistry.defaultRegistry)
   new GarbageCollectorExports().register(CollectorRegistry.defaultRegistry)
+  new MemoryPoolsExports().register(CollectorRegistry.defaultRegistry)
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     println(s"Starting. Cpus: $Cpus. Host: $Host")
@@ -61,7 +62,7 @@ object Main extends zio.App {
     val layer = MineClient.live(Host)
 
     val program = for {
-      _ <- ZStream.tick(if (IsLocal) 30.second else 30.second)
+      _ <- ZStream.tick(if (IsLocal) 60.second else 60.second)
         .drop(1)
         .foreach(_ => debug(start, stats))
         .forkDaemon
@@ -70,8 +71,8 @@ object Main extends zio.App {
         .foreach(_ => printMetrics())
         .forkDaemon
 
-      wideReports <- areas(Area(0, 0, Width, Width), 100)
-        .mapMPar(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 100, 100)) }
+      wideReports <- areas(Area(0, 0, Width, Width), 250)
+        .mapMPar(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 250, 250)) }
         .runCollect
       _ <- printStatsAndGetAverage(wideReports)
       orderedWideAreas = wideReports.sortBy(_.amount)(Ordering[Int].reverse)
@@ -87,9 +88,9 @@ object Main extends zio.App {
         .filterNot(_.isEmpty)
         .mapMPar(Parallelism)(dig(licenses))
         .mapConcat(identity)
-        .mapMPar(Parallelism)(MineClient.cash)
+        .buffer(5000)
+        .mapMPar(Cpus)(MineClient.cash)
         .mapConcat(identity)
-        .bufferDropping(100)
         .foreach { coin => wallet.offer(coin).as(TotalGold.incrementAndGet()) }
     } yield ()
 
