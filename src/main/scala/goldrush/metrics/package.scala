@@ -5,7 +5,7 @@ import zio.{UIO, ZIO}
 
 package object metrics {
 
-  final val RefinedBuckets = List(.01, 0.030, 0.040, .05)
+  final val RefinedBuckets = List(0.030, .05, .1, 1, 5)
 
   val LicenseAcquisition: Histogram = Histogram
     .build("acquire_license", "acquire_license")

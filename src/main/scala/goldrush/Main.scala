@@ -1,6 +1,6 @@
 package goldrush
 
-import goldrush.LicensePool.Licenses
+import goldrush.LicensePool.{GoldSpent, Licenses}
 import goldrush.client.MineClient
 import goldrush.models._
 import io.prometheus.client.CollectorRegistry
@@ -11,7 +11,7 @@ import zio.stream.{UStream, ZStream}
 import zio.{ExitCode, Queue, UIO, URIO, ZIO}
 
 import java.io.StringWriter
-import java.time.{Duration, LocalTime}
+import java.time.LocalTime
 import java.util.concurrent.atomic.AtomicLong
 
 object Main extends zio.App {
@@ -41,20 +41,19 @@ object Main extends zio.App {
         .foreach(_ => printMetrics())
         .forkDaemon
 
-      //      wideReports <- areas(Area(0, 0, Width, Width), 100)
-      //        .mapMPar(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 100, 100)) }
-      //        .runCollect
-      //      _ <- printStatsAndGetAverage(wideReports)
-      //      orderedWideAreas = wideReports.sortBy(_.amount)(Ordering[Int].reverse)
+      wideReports <- areas(Area(0, 0, Width, Width), 100)
+        .mapMPar(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 100, 100), Duration.Infinity) }
+        .runCollect
+      orderedWideAreas = wideReports.sortBy(_.amount)(Ordering[Int].reverse)
 
 
-      //      _ <- ZStream.fromChunk(orderedWideAreas)
-      //        .flatMap(r => areas(r.area, 2))
-      _ <- areas(Area(0, 0, Width, Width), 2)
-        .mapMParUnordered(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 2, 2)) }
+      _ <- ZStream.fromChunk(orderedWideAreas)
+        .flatMap(r => areas(r.area, 2))
+//      _ <- areas(Area(0, 0, Width, Width), 2)
+        .mapMParUnordered(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 2, 2), 100.millis) }
         .filterNot(_.isEmpty)
         .flatMap(r => areas(r.area, 1))
-        .mapMParUnordered(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 1, 1)) }
+        .mapMParUnordered(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 1, 1), 30.millis) }
         .filterNot(_.isEmpty)
         .mapMParUnordered(Parallelism)(dig(licenses))
         .mapConcat(identity)
@@ -91,8 +90,8 @@ object Main extends zio.App {
       licensesSize <- licenses.size
     } yield {
       val now = LocalTime.now()
-      val timePassed = Duration.between(start, now)
-      println(s"$timePassed. Total gold: ${TotalGold.get()}. Licenses total: ${Licenses.get()}. Wallet: $walletSize. Licenses: $licensesSize")
+      val timePassed = java.time.Duration.between(start, now)
+      println(s"$timePassed. Total gold: ${TotalGold.get()}. Spent: ${GoldSpent.get()}. Licenses total: ${Licenses.get()}. Wallet: $walletSize. Licenses: $licensesSize")
     }
   }
 

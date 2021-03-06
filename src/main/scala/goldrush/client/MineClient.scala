@@ -1,6 +1,6 @@
 package goldrush.client
 
-import com.github.plokhotnyuk.jsoniter_scala.core.readFromArray
+import com.github.plokhotnyuk.jsoniter_scala.core.{JsonValueCodec, readFromArray}
 import goldrush.Main
 import goldrush.models._
 import zio.clock.Clock
@@ -13,15 +13,15 @@ import java.net.http.{HttpClient, HttpResponse}
 object MineClient {
 
   trait Service {
-    def explore(area: Area): RIO[Clock,ExploreReport]
+    def explore(area: Area, timeout: Duration): RIO[Clock, ExploreReport]
 
-    def issueLicense(coin: List[Coin]): RIO[Clock,License]
+    def issueLicense(coin: List[Coin]): RIO[Clock, License]
 
-    def listLicenses(): RIO[Clock,List[License]]
+    def listLicenses(): RIO[Clock, List[License]]
 
-    def dig(req: DigRequest): RIO[Clock,List[Gold]]
+    def dig(req: DigRequest): RIO[Clock, List[Gold]]
 
-    def cash(gold: Gold): RIO[Clock,List[Coin]]
+    def cash(gold: Gold): RIO[Clock, List[Coin]]
   }
 
   def live(host: String) =
@@ -29,7 +29,9 @@ object MineClient {
 
   final val EmptyGoldList = List.empty[Gold]
 
-  final val Timeout = if (Main.IsLocal) 400.millis else 100.millis
+  final val DigTimeout = if (Main.IsLocal) 400.millis else 30.millis
+  final val ExploreTimeout = if (Main.IsLocal) 400.millis else 30.millis
+  final val CashTimeout = if (Main.IsLocal) 400.millis else 100.millis
 
   private def liveClient(host: String) = {
     val exploreUri = new URI(s"http://$host:8000/explore")
@@ -38,42 +40,44 @@ object MineClient {
     val cashUri = new URI(s"http://$host:8000/cash")
     ZLayer.fromService[HttpClient, Service] { client =>
       new Service {
-        override def explore(area: Area): RIO[Clock,ExploreReport] = {
-          client.sendRequest(exploreUri, area, Timeout)(jsoniter[ExploreReport])
+        override def explore(area: Area, timeout: Duration): RIO[Clock, ExploreReport] = {
+          client.sendRequest(exploreUri, area, timeout)(jsoniter[ExploreReport])
         }
 
-        override def issueLicense(coins: List[Coin]): RIO[Clock,License] = {
+        override def issueLicense(coins: List[Coin]): RIO[Clock, License] = {
           client.sendRequest(licenseUri, coins)(jsoniter[License])
         }
 
-        override def listLicenses(): RIO[Clock,List[License]] = {
+        override def listLicenses(): RIO[Clock, List[License]] = {
           client.sendGetRequest(licenseUri)(jsoniter[List[License]])
         }
 
-        override def dig(req: DigRequest): RIO[Clock,List[Gold]] = {
-          client.sendRequest(digUri, req, Timeout) { r =>
-            if (r.statusCode() == 200) Right(readFromArray[List[Gold]](r.body()))
-            else if (r.statusCode() == 404) Right(List.empty)
-            else if (r.statusCode() == 422) Right(List.empty)
-            else if (r.statusCode() == 403) Right(List.empty)
-            else Left(UnexpectedErrorCode)
-          }
+        def digJsoniter(r: HttpResponse[Array[Byte]]): Either[Throwable, List[Gold]] =
+          if (r.statusCode() == 200) Right(readFromArray[List[Gold]](r.body()))
+          else if (r.statusCode() == 404) Right(List.empty)
+          else if (r.statusCode() == 422) Right(List.empty)
+          else if (r.statusCode() == 403) Right(List.empty)
+          else Left(UnexpectedErrorCode)
+
+        override def dig(req: DigRequest): RIO[Clock, List[Gold]] = {
+          client.sendRequest(digUri, req, DigTimeout)(digJsoniter)
         }
 
-        override def cash(gold: Gold): RIO[Clock,List[Coin]] = {
-          client.sendRequest(cashUri, gold, 100.millis) { r =>
-            if (r.statusCode() == 200) Right(readFromArray[List[Coin]](r.body()))
-            else if (r.statusCode() == 409) Right(List.empty)
-            else if (r.statusCode() == 404) Right(List.empty)
-            else Left(UnexpectedErrorCode)
-          }
+        def cashJsoniter(r: HttpResponse[Array[Byte]]): Either[Throwable, List[Coin]] =
+          if (r.statusCode() == 200) Right(readFromArray[List[Coin]](r.body()))
+          else if (r.statusCode() == 409) Right(List.empty)
+          else if (r.statusCode() == 404) Right(List.empty)
+          else Left(UnexpectedErrorCode)
+
+        override def cash(gold: Gold): RIO[Clock, List[Coin]] = {
+          client.sendRequest(cashUri, gold, CashTimeout)(cashJsoniter)
         }
       }
     }
   }
 
-  def explore(area: Area): ZIO[MineClient with Clock, Nothing, ExploreReport] =
-    ZIO.accessM(_.get.explore(area).retry(Schedule.forever).orDie)
+  def explore(area: Area, timeout: Duration): ZIO[MineClient with Clock, Nothing, ExploreReport] =
+    ZIO.accessM(_.get.explore(area, timeout).retry(Schedule.forever).orDie)
 
   def dig(digRequest: DigRequest): URIO[MineClient with Clock, List[Gold]] =
     ZIO.accessM(_.get.dig(digRequest).retry(Schedule.forever).orDie)

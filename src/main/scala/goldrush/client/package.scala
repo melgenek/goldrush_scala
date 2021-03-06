@@ -47,7 +47,6 @@ package object client {
               .build()
             client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
           }
-          .timeout(timeout).someOrFailException
           .tap { r =>
             UIO {
               InFlight.labels(uri.getPath).dec()
@@ -60,6 +59,7 @@ package object client {
               RequestLatencies.labels(uri.getPath, "555").observe(elapsedSeconds(start))
             }
           }
+          .timeout(timeout).someOrFailException
           .flatMap(r => ZIO.fromEither(decode(r)))
           .unrefineTo[Throwable]
       } yield response

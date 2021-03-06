@@ -7,7 +7,7 @@ import zio.clock.Clock
 import zio.duration._
 import zio.stream.ZStream
 
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 import scala.util.Random
 
 object LicensePool {
@@ -19,6 +19,7 @@ object LicensePool {
   def randomCost: Int = ExpensiveCosts(Random.nextInt(ExpensiveCosts.length))
 
   final val Licenses = new AtomicInteger()
+  final val GoldSpent = new AtomicLong()
 
   def make: URIO[MineClient with Clock, (Queue[Coin], Queue[LicenseLease])] = {
     for {
@@ -26,10 +27,6 @@ object LicensePool {
       licenseRequests <- ZQueue.bounded[Unit](MaxLicenses)
       _ <- licenseRequests.offer(()).repeatN(MaxLicenses - 1)
       licenses <- ZQueue.bounded[LicenseLease](200)
-//      _ <- ZStream.tick(2.second)
-//        .mapM(_ => licenseRequests.size)
-//        .foreach(s => UIO(println(s"Requests: $s")))
-//        .forkDaemon
       _ <- ZStream.fromQueueWithShutdown(licenseRequests)
         .mapMParUnordered(MaxLicenses) { _ =>
           for {
@@ -43,6 +40,7 @@ object LicensePool {
               if (acc.nonEmpty) ZIO.succeed(acc)
               else wallet.takeN(cost).timeoutTo(List.empty)(identity)(100.nano)
             }
+            _ = GoldSpent.addAndGet(coins.length)
             license <- MineClient.issueLicense(coins)
             _ <- ZIO.foreach((1 to license.digAllowed).toList) { i =>
               if (i == license.digAllowed) licenses.offer(LicenseLease(license.id, licenseRequests.offer(()).unit))
