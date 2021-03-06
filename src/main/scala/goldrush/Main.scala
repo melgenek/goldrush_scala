@@ -41,15 +41,7 @@ object Main extends zio.App {
         .foreach(_ => printMetrics())
         .forkDaemon
 
-      wideReports <- areas(Area(0, 0, Width, Width), 100)
-        .mapMPar(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 100, 100), Duration.Infinity) }
-        .runCollect
-      orderedWideAreas = wideReports.sortBy(_.amount)(Ordering[Int].reverse)
-
-
-      _ <- ZStream.fromChunk(orderedWideAreas)
-        .flatMap(r => areas(r.area, 2))
-//      _ <- areas(Area(0, 0, Width, Width), 2)
+      _ <- areas(Area(0, 0, Width, Width), 2)
         .mapMParUnordered(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 2, 2), 100.millis) }
         .filterNot(_.isEmpty)
         .flatMap(r => areas(r.area, 1))
