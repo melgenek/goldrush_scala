@@ -4,10 +4,12 @@ import com.github.plokhotnyuk.jsoniter_scala.core.{JsonValueCodec, readFromArray
 import goldrush.metrics.{InFlight, RequestLatencies, elapsedSeconds}
 import sttp.client3._
 import sttp.model.MediaType
+import zio.clock.Clock
 import zio.duration._
-import zio.{Has, Task, UIO, ZIO}
+import zio.{Has, RIO, Task, UIO, ZIO}
 
 import java.net.URI
+import java.net.http.HttpClient.Version
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import scala.util.control.NoStackTrace
 
@@ -32,7 +34,7 @@ package object client {
 
   implicit class HttpClientOps(val client: HttpClient) extends AnyVal {
     def sendRequest[A: JsonValueCodec, B: JsonValueCodec](uri: URI, body: A, timeout: Duration = Duration.Infinity)
-                                                         (decode: DecodeResponse[B]): Task[B] = {
+                                                         (decode: DecodeResponse[B]): RIO[Clock, B] = {
       for {
         start <- UIO(System.nanoTime())
         _ = InFlight.labels(uri.getPath).inc()
@@ -41,10 +43,11 @@ package object client {
             val request = HttpRequest.newBuilder(uri)
               .headers("Content-Type", "application/json")
               .POST(HttpRequest.BodyPublishers.ofByteArray(writeToArray(body)))
-              .timeout(timeout)
+//              .timeout(timeout)
               .build()
             client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
           }
+          .timeout(timeout).someOrFailException
           .tap { r =>
             UIO {
               InFlight.labels(uri.getPath).dec()

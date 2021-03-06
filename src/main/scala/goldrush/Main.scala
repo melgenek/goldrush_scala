@@ -21,7 +21,7 @@ object Main extends zio.App {
   final val Cpus = Runtime.getRuntime.availableProcessors()
   final val TotalGold = new AtomicLong()
 
-  final val Parallelism = Cpus * 8
+  final val Parallelism = Cpus
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     println(s"Starting. Cpus: $Cpus. Host: $Host")
@@ -36,7 +36,7 @@ object Main extends zio.App {
         .drop(1)
         .foreach(_ => debug(start, wallet, licenses))
         .forkDaemon
-      _ <- ZStream.tick(if (IsLocal) 50.second else 9.minutes)
+      _ <- ZStream.tick(if (IsLocal) 45.second else 9.minutes)
         .drop(1)
         .foreach(_ => printMetrics())
         .forkDaemon
@@ -51,14 +51,14 @@ object Main extends zio.App {
       //      _ <- ZStream.fromChunk(orderedWideAreas)
       //        .flatMap(r => areas(r.area, 2))
       _ <- areas(Area(0, 0, Width, Width), 2)
-        .mapMPar(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 2, 2)) }
+        .mapMParUnordered(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 2, 2)) }
         .filterNot(_.isEmpty)
         .flatMap(r => areas(r.area, 1))
-        .mapMPar(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 1, 1)) }
+        .mapMParUnordered(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 1, 1)) }
         .filterNot(_.isEmpty)
-        .mapMPar(Parallelism)(dig(licenses))
+        .mapMParUnordered(Parallelism)(dig(licenses))
         .mapConcat(identity)
-        .mapMPar(Cpus)(MineClient.cash)
+        .mapMParUnordered(Parallelism)(MineClient.cash)
         .mapConcat(identity)
         .foreach { coin => wallet.offer(coin).as(TotalGold.incrementAndGet()) }
     } yield ()
