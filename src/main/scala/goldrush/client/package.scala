@@ -1,10 +1,10 @@
 package goldrush
 
 import com.github.plokhotnyuk.jsoniter_scala.core.{JsonValueCodec, readFromArray, writeToArray}
-import goldrush.client.MonitoringBackend.path
 import goldrush.metrics.{InFlight, RequestLatencies, elapsedSeconds}
 import sttp.client3._
 import sttp.model.MediaType
+import zio.duration._
 import zio.{Has, Task, UIO, ZIO}
 
 import java.net.URI
@@ -31,7 +31,8 @@ package object client {
     else Left(UnexpectedErrorCode)
 
   implicit class HttpClientOps(val client: HttpClient) extends AnyVal {
-    def sendRequest[A: JsonValueCodec, B: JsonValueCodec](uri: URI, body: A)(decode: DecodeResponse[B]): Task[B] = {
+    def sendRequest[A: JsonValueCodec, B: JsonValueCodec](uri: URI, body: A, timeout: Duration = Duration.Infinity)
+                                                         (decode: DecodeResponse[B]): Task[B] = {
       for {
         start <- UIO(System.nanoTime())
         _ = InFlight.labels(uri.getPath).inc()
@@ -40,6 +41,7 @@ package object client {
             val request = HttpRequest.newBuilder(uri)
               .headers("Content-Type", "application/json")
               .POST(HttpRequest.BodyPublishers.ofByteArray(writeToArray(body)))
+              .timeout(timeout)
               .build()
             client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
           }
@@ -56,8 +58,26 @@ package object client {
             }
           }
           .flatMap(r => ZIO.fromEither(decode(r)))
+          .unrefineTo[Throwable]
       } yield response
     }
+
+    def sendGetRequest[B: JsonValueCodec](uri: URI, timeout: Duration = Duration.Infinity)
+                                                         (decode: DecodeResponse[B]): Task[B] = {
+      for {
+        response <- ZIO
+          .fromCompletionStage {
+            val request = HttpRequest.newBuilder(uri)
+              .headers("Content-Type", "application/json")
+              .GET()
+              //              .timeout(timeout)
+              .build()
+            client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
+          }
+          .flatMap(r => ZIO.fromEither(decode(r)))
+      } yield response
+    }
+
   }
 
 }

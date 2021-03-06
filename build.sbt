@@ -27,7 +27,7 @@ enablePlugins(AshScriptPlugin)
 dockerBaseImage := "adoptopenjdk/openjdk11:alpine-jre"
 dockerRepository := Some("stor.highloadcup.ru")
 dockerUsername := Some("rally")
-packageName in Docker := "modern_dolphin"
+packageName in Docker := "solid_avocet"
 version in Docker := "latest"
 
 //dockerAlias := DockerAlias(Some("stor.highloadcup.ru"), Some("rally"), "modern_dolphin", None)

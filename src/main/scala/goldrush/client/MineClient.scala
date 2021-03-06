@@ -3,7 +3,8 @@ package goldrush.client
 import com.github.plokhotnyuk.jsoniter_scala.core.readFromArray
 import goldrush.models._
 import zio.clock.Clock
-import zio.{Schedule, Task, URIO, ZIO, ZLayer}
+import zio.{RIO, Schedule, Task, URIO, ZIO, ZLayer}
+import zio.duration._
 
 import java.net.URI
 import java.net.http.{HttpClient, HttpResponse}
@@ -13,7 +14,9 @@ object MineClient {
   trait Service {
     def explore(area: Area): Task[ExploreReport]
 
-    def issueLicense(coin: Option[Coin]): Task[License]
+    def issueLicense(coin: List[Coin]): Task[License]
+
+    def listLicenses(): Task[List[License]]
 
     def dig(req: DigRequest): Task[List[Gold]]
 
@@ -41,15 +44,19 @@ object MineClient {
           client.sendRequest(exploreUri, area)(jsoniter[ExploreReport])
         }
 
-        override def issueLicense(coin: Option[Coin]): Task[License] = {
-          client.sendRequest(licenseUri, coin.toList)(jsoniter[License])
+        override def issueLicense(coins: List[Coin]): Task[License] = {
+          client.sendRequest(licenseUri, coins)(jsoniter[License])
+        }
+
+        override def listLicenses(): Task[List[License]] = {
+          client.sendGetRequest(licenseUri)(jsoniter[List[License]])
         }
 
         override def dig(req: DigRequest): Task[List[Gold]] = {
           client.sendRequest(digUri, req)(jsoniterDig)
         }
 
-        def cash(gold: Gold): Task[List[Coin]] = {
+        override def cash(gold: Gold): Task[List[Coin]] = {
           client.sendRequest(cashUri, gold)(jsoniter[List[Coin]])
         }
       }
@@ -62,8 +69,11 @@ object MineClient {
   def dig(digRequest: DigRequest): URIO[MineClient with Clock, List[Gold]] =
     ZIO.accessM(_.get.dig(digRequest).retry(Schedule.forever).orDie)
 
-  def issueLicense(coin: Option[Coin]): URIO[MineClient with Clock, License] =
-    ZIO.accessM(_.get.issueLicense(coin).retry(Schedule.forever).orDie)
+  def issueLicense(coins: List[Coin]): RIO[MineClient with Clock, License] =
+    ZIO.accessM(_.get.issueLicense(coins))
+
+  def listLicenses(): URIO[MineClient with Clock, List[License]] =
+    ZIO.accessM(_.get.listLicenses().retry(Schedule.forever).orDie)
 
   def cash(gold: Gold): URIO[MineClient with Clock, List[Coin]] =
     ZIO.accessM(_.get.cash(gold).retry(Schedule.forever).orDie)

@@ -1,61 +1,56 @@
 package goldrush
 
 import goldrush.client.MineClient
-import goldrush.models.{Coin, Gold, License, LicenseLease}
+import goldrush.models.{Coin, License, LicenseLease}
 import zio._
-import zio.clock.Clock
+import zio.clock.{Clock, currentDateTime}
+import zio.duration._
 import zio.stream.ZStream
 
 import java.util.concurrent.atomic.AtomicInteger
+import scala.util.Random
 
 object LicensePool {
   final val MaxLicenses = 10
+  final val ExpensiveCosts = Array(21, 11, 1, 0)
+  final val MediumCosts = Array(11, 1, 0)
+  final val CheapCosts = Array(1, 0)
 
-  type WithLicenseCallback = Int => URIO[MineClient with Clock, List[Gold]]
-  type ExecWithLicense = WithLicenseCallback => URIO[MineClient with Clock, List[Gold]]
+  def randomCost: Int = ExpensiveCosts(Random.nextInt(ExpensiveCosts.length))
 
-  def makeSimple: UIO[(Queue[Coin], ExecWithLicense)] = {
-    for {
-      sem <- Semaphore.make(permits = MaxLicenses)
-      wallet <- ZQueue.dropping[Coin](MaxLicenses * 10)
-      licenseQueue <- ZQueue.dropping[License](MaxLicenses)
-    } yield (wallet, (f: WithLicenseCallback) => {
-      sem.withPermit {
-        for {
-          existingLicense <- licenseQueue.poll
-          license <- existingLicense.fold {
-            for {
-              coin <- wallet.poll
-              license <- MineClient.issueLicense(coin)
-            } yield license
-          }(UIO(_))
-          res <- f(license.id)
-          updatedLicense = license.copy(digUsed = license.digUsed + 1)
-          _ <- ZIO.when(!updatedLicense.isUsed)(licenseQueue.offer(updatedLicense))
-        } yield res
-      }
-    })
-  }
-
-  final val FreeLicenses = new AtomicInteger()
-  final val PaidLicenses = new AtomicInteger()
+  final val Licenses = new AtomicInteger()
 
   def make: URIO[MineClient with Clock, (Queue[Coin], Queue[LicenseLease])] = {
     for {
-      wallet <- ZQueue.dropping[Coin](MaxLicenses * 2)
-      licenseRequests <- ZQueue.bounded[Unit](MaxLicenses)
-      _ <- licenseRequests.offer(()).repeatN(MaxLicenses - 1)
-      licenses <- ZQueue.bounded[LicenseLease](MaxLicenses * 5)
-      _ <- ZStream.fromQueueWithShutdown(licenseRequests)
-        .mapMPar(Main.Parallelism) { _ =>
+      wallet <- ZQueue.dropping[Coin](1000)
+      licenses <- ZQueue.bounded[LicenseLease](1000)
+      ref <- Ref.make(0)
+      _ <- ZStream.repeatEffect(ref.get)
+        .filter(_ <= MaxLicenses)
+        .tap(_ => ref.updateAndGet(_ + 1))
+        .mapMPar(MaxLicenses) { _ =>
           for {
-            coin <- wallet.poll
-            license <- MineClient.issueLicense(coin)
-            _ <- ZIO.foreach((1 to license.digAllowed).toList) { i =>
-              if (i == license.digAllowed) licenses.offer(LicenseLease(license.id, licenseRequests.offer(()).unit))
-              else licenses.offer(LicenseLease(license.id, UIO.unit))
+            currentLeases <- licenses.size
+            costs <- UIO {
+              if (currentLeases < 50) ExpensiveCosts
+              else if (currentLeases < 100) MediumCosts
+              else CheapCosts
             }
-          } yield coin.fold(FreeLicenses.incrementAndGet())(_ => PaidLicenses.incrementAndGet())
+            coins <- ZIO.foldLeft(costs)(List.empty[Coin]) { case (acc, cost) =>
+              if (acc.nonEmpty) ZIO.succeed(acc)
+              else wallet.takeN(cost).timeoutTo(List.empty)(identity)(100.nano)
+            }
+            license <- MineClient.issueLicense(coins)
+              .tap(_ => UIO(Licenses.incrementAndGet()))
+              .catchAll(_ => ref.update(_ - 1).as(License.EmptyLicense))
+            _ <- ZIO.foreach((1 to license.digAllowed).toList) { i =>
+              if (i == license.digAllowed) {
+                licenses.offer(LicenseLease(license.id,
+                  ref.update(_ - 1)
+                ))
+              } else licenses.offer(LicenseLease(license.id, UIO.unit))
+            }
+          } yield ()
         }
         .runDrain
         .fork
