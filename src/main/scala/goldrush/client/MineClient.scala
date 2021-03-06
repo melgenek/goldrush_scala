@@ -64,6 +64,7 @@ object MineClient {
           client.sendRequest(cashUri, gold, 100.millis) { r =>
             if (r.statusCode() == 200) Right(readFromArray[List[Coin]](r.body()))
             else if (r.statusCode() == 409) Right(List.empty)
+            else if (r.statusCode() == 404) Right(List.empty)
             else Left(UnexpectedErrorCode)
           }
         }
