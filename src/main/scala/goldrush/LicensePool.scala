@@ -1,7 +1,7 @@
 package goldrush
 
 import goldrush.client.MineClient
-import goldrush.models.{Coin, LicenseLease}
+import goldrush.models.{Coin, License, LicenseLease}
 import zio._
 import zio.clock.Clock
 import zio.duration._
@@ -24,29 +24,33 @@ object LicensePool {
   def make: URIO[MineClient with Clock, (Queue[Coin], Queue[LicenseLease])] = {
     for {
       wallet <- ZQueue.dropping[Coin](200)
-      licenseRequests <- ZQueue.bounded[Unit](MaxLicenses)
-      _ <- licenseRequests.offer(()).repeatN(MaxLicenses - 1)
       licenses <- ZQueue.bounded[LicenseLease](200)
-      _ <- ZStream.fromQueueWithShutdown(licenseRequests)
+      ref <- Ref.make(0)
+      _ <- ZStream.repeatEffect(ref.get)
+        .filter(_ <= MaxLicenses)
+        .tap(_ => ref.updateAndGet(_ + 1))
         .mapMParUnordered(MaxLicenses) { _ =>
           for {
-            currentLeases <- licenses.size
-            costs <- UIO {
-              if (currentLeases < 30) ExpensiveCosts
-              else if (currentLeases < 60) MediumCosts
-              else CheapCosts
-            }
-            coins <- ZIO.foldLeft(costs)(List.empty[Coin]) { case (acc, cost) =>
-              if (acc.nonEmpty) ZIO.succeed(acc)
-              else wallet.takeN(cost).timeoutTo(List.empty)(identity)(100.nano)
-            }
-            _ = GoldSpent.addAndGet(coins.length)
+//            currentLeases <- licenses.size
+//            costs <- UIO {
+//              if (currentLeases < 50) ExpensiveCosts
+//              else if (currentLeases < 100) MediumCosts
+//              else CheapCosts
+//            }
+//            coins <- ZIO.foldLeft(costs)(List.empty[Coin]) { case (acc, cost) =>
+//              if (acc.nonEmpty) ZIO.succeed(acc)
+//              else wallet.takeN(cost).timeoutTo(List.empty)(identity)(100.nano)
+//            }
+            coins <- wallet.takeUpTo(1)
             license <- MineClient.issueLicense(coins)
             _ <- ZIO.foreach((1 to license.digAllowed).toList) { i =>
-              if (i == license.digAllowed) licenses.offer(LicenseLease(license.id, licenseRequests.offer(()).unit))
-              else licenses.offer(LicenseLease(license.id, UIO.unit))
+              if (i == license.digAllowed) {
+                licenses.offer(LicenseLease(license.id,
+                  ref.update(_ - 1)
+                ))
+              } else licenses.offer(LicenseLease(license.id, UIO.unit))
             }
-          } yield Licenses.incrementAndGet()
+          } yield ()
         }
         .runDrain
         .fork

@@ -2,6 +2,7 @@ package goldrush
 
 import goldrush.LicensePool.{GoldSpent, Licenses}
 import goldrush.client.MineClient
+import goldrush.client.MineClient.ExploreTimeout
 import goldrush.models._
 import io.prometheus.client.CollectorRegistry
 import io.prometheus.client.exporter.common.TextFormat
@@ -21,7 +22,7 @@ object Main extends zio.App {
   final val Cpus = Runtime.getRuntime.availableProcessors()
   final val TotalGold = new AtomicLong()
 
-  final val Parallelism = Cpus
+  final val Parallelism = Cpus * 8
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     println(s"Starting. Cpus: $Cpus. Host: $Host")
@@ -42,10 +43,10 @@ object Main extends zio.App {
         .forkDaemon
 
       _ <- areas(Area(0, 0, Width, Width), 2)
-        .mapMParUnordered(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 2, 2), 100.millis) }
+        .mapMParUnordered(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 2, 2), ExploreTimeout * 3) }
         .filterNot(_.isEmpty)
         .flatMap(r => areas(r.area, 1))
-        .mapMParUnordered(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 1, 1), 30.millis) }
+        .mapMParUnordered(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 1, 1), ExploreTimeout) }
         .filterNot(_.isEmpty)
         .mapMParUnordered(Parallelism)(dig(licenses))
         .mapConcat(identity)

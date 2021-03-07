@@ -1,12 +1,13 @@
 package goldrush.client
 
-import com.github.plokhotnyuk.jsoniter_scala.core.{JsonValueCodec, readFromArray}
+import com.github.plokhotnyuk.jsoniter_scala.core.{JsonValueCodec, readFromArray, readFromStream}
 import goldrush.Main
 import goldrush.models._
 import zio.clock.Clock
 import zio.{RIO, Schedule, Task, URIO, ZIO, ZLayer}
 import zio.duration._
 
+import java.io.InputStream
 import java.net.URI
 import java.net.http.{HttpClient, HttpResponse}
 
@@ -49,11 +50,12 @@ object MineClient {
         }
 
         override def listLicenses(): RIO[Clock, List[License]] = {
-          client.sendGetRequest(licenseUri)(jsoniter[List[License]])
+//          client.sendGetRequest(licenseUri)(jsoniter[List[License]])
+          ???
         }
 
-        def digJsoniter(r: HttpResponse[Array[Byte]]): Either[Throwable, List[Gold]] =
-          if (r.statusCode() == 200) Right(readFromArray[List[Gold]](r.body()))
+        def digJsoniter(r: HttpResponse[InputStream]): Either[Throwable, List[Gold]] =
+          if (r.statusCode() == 200) Right(readFromStream[List[Gold]](r.body()))
           else if (r.statusCode() == 404) Right(List.empty)
           else if (r.statusCode() == 422) Right(List.empty)
           else if (r.statusCode() == 403) Right(List.empty)
@@ -63,8 +65,8 @@ object MineClient {
           client.sendRequest(digUri, req, DigTimeout)(digJsoniter)
         }
 
-        def cashJsoniter(r: HttpResponse[Array[Byte]]): Either[Throwable, List[Coin]] =
-          if (r.statusCode() == 200) Right(readFromArray[List[Coin]](r.body()))
+        def cashJsoniter(r: HttpResponse[InputStream]): Either[Throwable, List[Coin]] =
+          if (r.statusCode() == 200) Right(readFromStream[List[Coin]](r.body()))
           else if (r.statusCode() == 409) Right(List.empty)
           else if (r.statusCode() == 404) Right(List.empty)
           else Left(UnexpectedErrorCode)

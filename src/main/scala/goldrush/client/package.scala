@@ -1,6 +1,6 @@
 package goldrush
 
-import com.github.plokhotnyuk.jsoniter_scala.core.{JsonValueCodec, readFromArray, writeToArray}
+import com.github.plokhotnyuk.jsoniter_scala.core.{JsonValueCodec, readFromArray, readFromStream, writeToArray}
 import goldrush.metrics.{InFlight, RequestLatencies, elapsedSeconds}
 import sttp.client3._
 import sttp.model.MediaType
@@ -8,6 +8,7 @@ import zio.clock.Clock
 import zio.duration._
 import zio.{Has, RIO, Task, UIO, ZIO}
 
+import java.io.InputStream
 import java.net.URI
 import java.net.http.HttpClient.Version
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
@@ -26,10 +27,10 @@ package object client {
 
   final object UnexpectedErrorCode extends NoStackTrace
 
-  type DecodeResponse[B] = HttpResponse[Array[Byte]] => Either[Throwable, B]
+  type DecodeResponse[B] = HttpResponse[InputStream] => Either[Throwable, B]
 
-  def jsoniter[B: JsonValueCodec](r: HttpResponse[Array[Byte]]): Either[Throwable, B] =
-    if (r.statusCode() == 200) Right(readFromArray(r.body()))
+  def jsoniter[B: JsonValueCodec](r: HttpResponse[InputStream]): Either[Throwable, B] =
+    if (r.statusCode() == 200) Right(readFromStream(r.body()))
     else Left(UnexpectedErrorCode)
 
   implicit class HttpClientOps(val client: HttpClient) extends AnyVal {
@@ -45,7 +46,7 @@ package object client {
               .POST(HttpRequest.BodyPublishers.ofByteArray(writeToArray(body)))
 //              .timeout(timeout)
               .build()
-            client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
+            client.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream())
           }
           .tap { r =>
             UIO {
@@ -59,25 +60,9 @@ package object client {
               RequestLatencies.labels(uri.getPath, "555").observe(elapsedSeconds(start))
             }
           }
-          .timeout(timeout).someOrFailException
+//          .timeout(timeout).someOrFailException
           .flatMap(r => ZIO.fromEither(decode(r)))
           .unrefineTo[Throwable]
-      } yield response
-    }
-
-    def sendGetRequest[B: JsonValueCodec](uri: URI, timeout: Duration = Duration.Infinity)
-                                                         (decode: DecodeResponse[B]): Task[B] = {
-      for {
-        response <- ZIO
-          .fromCompletionStage {
-            val request = HttpRequest.newBuilder(uri)
-              .headers("Content-Type", "application/json")
-              .GET()
-              //              .timeout(timeout)
-              .build()
-            client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
-          }
-          .flatMap(r => ZIO.fromEither(decode(r)))
       } yield response
     }
 
