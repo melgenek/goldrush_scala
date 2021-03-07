@@ -15,19 +15,38 @@ libraryDependencies ++= List(
   "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "2.6.4" % "compile",
   "org.slf4j" % "slf4j-simple" % "1.7.30",
   "io.prometheus" % "simpleclient_common" % "0.10.0",
-  "io.prometheus" % "simpleclient_hotspot" % "0.10.0"
+  "io.prometheus" % "simpleclient_hotspot" % "0.10.0",
+  "org.scalameta" % "svm-subs" % "101.0.0" % Compile
 )
 
+scalacOptions ++= Seq("-target:15")
+javacOptions ++= Seq("-source", "15", "-target", "15")
 
-scalacOptions ++= Seq("-target:11")
-javacOptions ++= Seq("-source", "11", "-target", "11")
+enablePlugins(AshScriptPlugin, GraalVMNativeImagePlugin)
 
-enablePlugins(AshScriptPlugin)
-//dockerBaseImage := "openjdk:8-jre-alpine"
-dockerBaseImage := "adoptopenjdk/openjdk11:alpine-jre"
+dockerBaseImage := "adoptopenjdk/openjdk15:alpine-jre"
 dockerRepository := Some("stor.highloadcup.ru")
 dockerUsername := Some("rally")
 packageName in Docker := "solid_avocet"
 version in Docker := "latest"
+javaOptions in Universal ++= Seq(
+  "-J-Xmx1850m",
+  "-J-Xms1850m",
+  "-J-XX:+UseNUMA",
+  "-J-XX:+UseG1GC",
+  "-J-XX:+UseCompressedClassPointers",
+  "-J-XX:+UseCompressedOops",
+  "-J-XX:+PrintCommandLineFlags",
+  "-J-XX:+UnlockExperimentalVMOptions",
+  "-J-XX:+UseJVMCICompiler",
+  "-Dgraal.ShowConfiguration=info"
+)
 
-//dockerAlias := DockerAlias(Some("stor.highloadcup.ru"), Some("rally"), "modern_dolphin", None)
+graalVMNativeImageOptions ++= Seq(
+  "--verbose",
+  "--no-server",
+//  "--static",
+  "--no-fallback",
+  "--enable-https",
+  "-H:+ReportExceptionStackTraces"
+)

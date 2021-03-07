@@ -1,0 +1,12 @@
+FROM hseeberger/scala-sbt:graalvm-ce-21.0.0-java11_1.4.7_2.11.12 AS builder
+
+RUN gu install native-image
+
+WORKDIR /opt/goldrush/
+ADD . /opt/goldrush/
+
+RUN sbt graalvm-native-image:packageBin
+
+FROM oraclelinux:7-slim
+COPY --from=builder /opt/goldrush/target/graalvm-native-image/goldrush_scala ./app/
+CMD ./app/goldrush_scala

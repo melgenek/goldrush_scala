@@ -33,7 +33,7 @@ object Main extends zio.App {
     val program = for {
       (wallet, licenses) <- LicensePool.make
 
-      _ <- ZStream.tick(if (IsLocal) 2.second else 120.second)
+      _ <- ZStream.tick(if (IsLocal) 2.second else 30.second)
         .drop(1)
         .foreach(_ => debug(start, wallet, licenses))
         .forkDaemon
