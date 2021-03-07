@@ -19,8 +19,8 @@ libraryDependencies ++= List(
   "org.scalameta" % "svm-subs" % "101.0.0" % Compile
 )
 
-scalacOptions ++= Seq("-target:15")
-javacOptions ++= Seq("-source", "15", "-target", "15")
+scalacOptions ++= Seq("-target:11")
+javacOptions ++= Seq("-source", "11", "-target", "11")
 
 enablePlugins(AshScriptPlugin, GraalVMNativeImagePlugin)
 
@@ -39,12 +39,15 @@ javaOptions in Universal ++= Seq(
   "-J-XX:+PrintCommandLineFlags",
   "-J-XX:+UnlockExperimentalVMOptions",
   "-J-XX:+UseJVMCICompiler",
+  "-J-XX:+EagerJVMCI",
   "-Dgraal.ShowConfiguration=info"
 )
 
 graalVMNativeImageOptions ++= Seq(
   "--verbose",
   "--no-server",
+  "-J-Xmx1850m",
+  "-J-Xms1850m",
 //  "--static",
   "--no-fallback",
   "--enable-https",
