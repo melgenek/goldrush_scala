@@ -46,8 +46,8 @@ javaOptions in Universal ++= Seq(
 graalVMNativeImageOptions ++= Seq(
   "--verbose",
   "--no-server",
-  "-J-Xmx1850m",
-  "-J-Xms1850m",
+  "-R:MaxHeapSize=1850m",
+  "-R:MinHeapSize=1850m",
 //  "--static",
   "--no-fallback",
   "--enable-https",
