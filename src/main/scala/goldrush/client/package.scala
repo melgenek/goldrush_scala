@@ -25,7 +25,7 @@ package object client {
   implicit def jsoniterBodySerializer[A: JsonValueCodec]: BodySerializer[A] =
     b => ByteArrayBody(writeToArray(b), MediaType.ApplicationJson)
 
-  final object UnexpectedErrorCode extends NoStackTrace
+  final object UnexpectedErrorCode extends Exception
 
   type DecodeResponse[B] = HttpResponse[InputStream] => Either[Throwable, B]
 

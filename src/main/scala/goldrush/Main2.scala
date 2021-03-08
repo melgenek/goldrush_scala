@@ -18,19 +18,21 @@ object Main2 {
   final val Cpus = Runtime.getRuntime.availableProcessors()
   final val TotalGold = new AtomicLong()
 
-  final val Parallelism = Cpus * 8
+  final val Parallelism = Cpus
 
   val client = new BlockingMineClient(Host)
 
   class MineEvent {
-    var coords: (Int, Int) = _
-    var exploreReport: ExploreReport = _
-    var gold = List.empty[Gold]
+    var wideArea: Area = _
+    var coords: Set[Area] = Set.empty
+    var exploreReports: Set[ExploreReport] = Set.empty
+    var gold = Set.empty[Gold]
 
     def clear(): Unit = {
-      coords = null
-      exploreReport = null
-      gold = List.empty[Gold]
+      wideArea = null
+      coords = Set.empty
+      exploreReports = null
+      gold = Set.empty[Gold]
     }
   }
 
@@ -70,7 +72,6 @@ object Main2 {
       while (true) {
         licenseSemaphore.acquire()
         val coin = wallet.poll()
-
         val license = client.issueLicense(Option(coin).map(c => Coin(c.value)))
         (1 to license.digAllowed).foreach { i =>
           if (i == license.digAllowed) licenses.put(LicenseUse(license.id, () => licenseSemaphore.release()))
@@ -81,7 +82,8 @@ object Main2 {
 
     disruptor.setDefaultExceptionHandler(new ExceptionHandler[MineEvent] {
       override def handleEventException(ex: Throwable, sequence: Long, event: MineEvent): Unit = {
-        ex.printStackTrace()
+//                ex.printStackTrace()
+        ()
       }
 
       override def handleOnStartException(ex: Throwable): Unit = {}
@@ -91,22 +93,35 @@ object Main2 {
 
     disruptor
       .andThen(Parallelism) { event =>
-        val exploreReport = client.explore(Area(event.coords._1, event.coords._2, 1, 1))
-        event.exploreReport = exploreReport
+        val exploreReport = client.explore(event.wideArea)
+        if (exploreReport.amount > 0) {
+          event.coords =
+            (for {
+              x <- event.wideArea.posX until (event.wideArea.posX + event.wideArea.sizeX)
+              y <- event.wideArea.posY until (event.wideArea.posY + event.wideArea.sizeY)
+            } yield Area(x, y, 1, 1)).toSet
+        }
       }
       .andThen(Parallelism) { event =>
-        if (event.exploreReport.amount > 0) {
-          var left = event.exploreReport.amount
-          for (depth <- 1 to 10 if left > 0) {
-            val license = metrics.measureBlocking(licenses.take(), metrics.LicenseAcquisition)
-            val gold = client.dig(DigRequest(license.licenseId, event.coords._1, event.coords._2, depth))
-            license.callback()
-            if (gold.nonEmpty) {
-              event.gold ++= gold
-              left -= 1
+        event.exploreReports = event.coords
+          .map(client.explore.apply)
+          .filter(_.amount > 0)
+          .toSet
+      }
+      .andThen(Parallelism) { event =>
+        event.exploreReports
+          .map { exploreReport =>
+            var left = exploreReport.amount
+            for (depth <- 1 to 10 if left > 0) {
+              val license = metrics.measureBlocking(licenses.take(), metrics.LicenseAcquisition)
+              val gold = client.dig(DigRequest(license.licenseId, exploreReport.area.posX, exploreReport.area.posY, depth))
+              license.callback()
+              if (gold.nonEmpty) {
+                event.gold ++= gold
+                left -= 1
+              }
             }
           }
-        }
       }
       .andThen(Parallelism) { event =>
         for {
@@ -121,12 +136,13 @@ object Main2 {
 
     val ringBuffer = disruptor.start()
 
+    val step = 2
     for {
-      x <- 0 until Width
-      y <- 0 until Width
+      x <- 0 until Width by step
+      y <- 0 until Width by step
     } {
       ringBuffer.publishEvent((newEvent: MineEvent, _: Long) => {
-        newEvent.coords = (x, y)
+        newEvent.wideArea = Area(x, y, step, step)
       })
     }
   }

@@ -12,7 +12,6 @@ import java.net.URI
 import java.net.http.{HttpClient, HttpRequest, HttpResponse, HttpTimeoutException}
 import java.time.Duration
 import scala.annotation.tailrec
-import scala.util.control.NoStackTrace
 
 class BlockingMineClient(host: String) {
 
@@ -26,7 +25,7 @@ class BlockingMineClient(host: String) {
 
   val retryConfig: RetryConfig = RetryConfig.custom
     .maxAttempts(Int.MaxValue)
-    .intervalFunction(IntervalFunction.ofRandomized(50))
+    .intervalFunction(IntervalFunction.ofRandomized(30))
     .retryOnResult((response: HttpResponse[Array[Byte]]) => response.statusCode() >= 500)
     .retryOnException(e => {
       true
@@ -45,7 +44,7 @@ class BlockingMineClient(host: String) {
   val cashLimiter: RateLimiter = rateLimiterRegistry.rateLimiter("cash")
   val licenseLimiter: RateLimiter = rateLimiterRegistry.rateLimiter("license")
 
-  val customTimeout = if (IsLocal) Duration.ofMillis(5000) else Duration.ofMillis(200)
+  val customTimeout = if (IsLocal) Duration.ofMillis(5000) else Duration.ofMillis(120)
 
   @tailrec
   final def healthCheck(): Unit = {
@@ -79,6 +78,7 @@ class BlockingMineClient(host: String) {
 
   private def licenseJsoniter(r: HttpResponse[Array[Byte]]): License =
     if (r.statusCode() == 200) readFromArray[License](r.body())
+    else if (r.statusCode() == 409) License.EmptyLicense
     else throw UnexpectedErrorCode
 
   //  def issueLicense(coin: Option[Coin]) = {
@@ -86,11 +86,12 @@ class BlockingMineClient(host: String) {
   //  }
 
 
-  val issueLicense = Retry.decorateCheckedFunction(retry,
-    RateLimiter.decorateCheckedFunction(licenseLimiter, (coin: Option[Coin]) => {
-      sendRawRequest(licenseUri, coin.toList, zio.duration.Duration.Infinity)
-    })
-  ).andThen(licenseJsoniter)
+  val issueLicense =
+    Retry.decorateCheckedFunction(retry,
+      RateLimiter.decorateCheckedFunction(licenseLimiter, (coin: Option[Coin]) => {
+        sendRawRequest(licenseUri, coin.toList, zio.duration.Duration.Infinity)
+      })
+    ).andThen(licenseJsoniter)
 
   private def digJsoniter(r: HttpResponse[Array[Byte]]): List[Gold] =
     if (r.statusCode() == 200) readFromArray[List[Gold]](r.body())
@@ -139,10 +140,17 @@ class BlockingMineClient(host: String) {
         .timeout(t)
         .build()
       val response = client.send(request, HttpResponse.BodyHandlers.ofByteArray())
-      InFlight.labels(uri.getPath).dec()
       RequestLatencies.labels(uri.getPath, response.statusCode.toString).observe(elapsedSeconds(start))
       response
+    } catch {
+      case e: HttpTimeoutException =>
+        RequestLatencies.labels(uri.getPath, "553").observe(elapsedSeconds(start))
+        throw e
+      case e: Throwable =>
+        RequestLatencies.labels(uri.getPath, "555").observe(elapsedSeconds(start))
+        throw e
     } finally {
+      InFlight.labels(uri.getPath).dec()
     }
   }
 
@@ -165,7 +173,6 @@ class BlockingMineClient(host: String) {
       //      case _: Unexpected =>
       //        sendRequest(uri, body, t, rateLimiter)(decode)
       case e: HttpTimeoutException =>
-        e.printStackTrace()
         InFlight.labels(uri.getPath).dec()
         RequestLatencies.labels(uri.getPath, "553").observe(elapsedSeconds(start))
         sendRequest(uri, body, t, rateLimiter)(decode)
