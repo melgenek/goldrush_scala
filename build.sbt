@@ -17,7 +17,9 @@ libraryDependencies ++= List(
   "io.prometheus" % "simpleclient_common" % "0.10.0",
   "io.prometheus" % "simpleclient_hotspot" % "0.10.0",
   "org.scalameta" % "svm-subs" % "101.0.0" % Compile,
-  "com.lmax" % "disruptor" % "3.4.2"
+  "com.lmax" % "disruptor" % "3.4.2",
+  "io.github.resilience4j" % "resilience4j-ratelimiter" % "1.7.0",
+  "io.github.resilience4j" % "resilience4j-retry" % "1.7.0"
 )
 
 //mainClass := Some("goldrush.Main2")
