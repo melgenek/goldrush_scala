@@ -16,8 +16,11 @@ libraryDependencies ++= List(
   "org.slf4j" % "slf4j-simple" % "1.7.30",
   "io.prometheus" % "simpleclient_common" % "0.10.0",
   "io.prometheus" % "simpleclient_hotspot" % "0.10.0",
-  "org.scalameta" % "svm-subs" % "101.0.0" % Compile
+  "org.scalameta" % "svm-subs" % "101.0.0" % Compile,
+  "com.lmax" % "disruptor" % "3.4.2"
 )
+
+//mainClass := Some("goldrush.Main2")
 
 scalacOptions ++= Seq("-target:11")
 javacOptions ++= Seq("-source", "11", "-target", "11")
@@ -48,7 +51,7 @@ graalVMNativeImageOptions ++= Seq(
   "--no-server",
   "-R:MaxHeapSize=1850m",
   "-R:MinHeapSize=1850m",
-//  "--static",
+  //  "--static",
   "--no-fallback",
   "--enable-https",
   "-H:+ReportExceptionStackTraces"

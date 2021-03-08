@@ -1,7 +1,10 @@
 package goldrush
 
+import io.prometheus.client.exporter.common.TextFormat
 import io.prometheus.client.{Collector, CollectorRegistry, Gauge, Histogram, Summary}
 import zio.{UIO, ZIO}
+
+import java.io.StringWriter
 
 package object metrics {
 
@@ -35,5 +38,21 @@ package object metrics {
 
   def elapsedSeconds(startNanos: Long): Double =
     (System.nanoTime() - startNanos) / Collector.NANOSECONDS_PER_SECOND
+
+  def measureBlocking[A](f: => A, histogram: Histogram): A = {
+    val start = System.nanoTime()
+    val res = f
+    histogram.observe(elapsedSeconds(start))
+    res
+  }
+
+  def printMetrics(): Unit = {
+    val writer = new StringWriter()
+    TextFormat.write004(writer, CollectorRegistry.defaultRegistry.metricFamilySamples())
+    val output = writer.toString.split("\n")
+      .filterNot(line => line.startsWith("#") || line.contains("_created"))
+      .mkString("\n")
+    println(output)
+  }
 
 }
