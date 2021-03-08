@@ -24,15 +24,9 @@ object Main2 {
 
   class MineEvent {
     var wideArea: Area = _
-    var coords: Set[Area] = Set.empty
-    var exploreReports: Set[ExploreReport] = Set.empty
-    var gold = Set.empty[Gold]
 
     def clear(): Unit = {
       wideArea = null
-      coords = Set.empty
-      exploreReports = null
-      gold = Set.empty[Gold]
     }
   }
 
@@ -63,7 +57,7 @@ object Main2 {
       override def run(): Unit = {
         metrics.printMetrics()
       }
-    }, if (IsLocal) 40 else 500, TimeUnit.SECONDS)
+    }, if (IsLocal) 50 else 500, TimeUnit.SECONDS)
 
     client.healthCheck()
     started = true
@@ -82,7 +76,6 @@ object Main2 {
 
     disruptor.setDefaultExceptionHandler(new ExceptionHandler[MineEvent] {
       override def handleEventException(ex: Throwable, sequence: Long, event: MineEvent): Unit = {
-//                ex.printStackTrace()
         ()
       }
 
@@ -94,49 +87,41 @@ object Main2 {
     disruptor
       .andThen(Parallelism) { event =>
         val exploreReport = client.explore(event.wideArea)
-        if (exploreReport.amount > 0) {
-          event.coords =
-            (for {
-              x <- event.wideArea.posX until (event.wideArea.posX + event.wideArea.sizeX)
-              y <- event.wideArea.posY until (event.wideArea.posY + event.wideArea.sizeY)
-            } yield Area(x, y, 1, 1)).toSet
-        }
-      }
-      .andThen(Parallelism) { event =>
-        event.exploreReports = event.coords
-          .map(client.explore.apply)
-          .filter(_.amount > 0)
-          .toSet
-      }
-      .andThen(Parallelism) { event =>
-        event.exploreReports
-          .map { exploreReport =>
-            var left = exploreReport.amount
+
+        var left = exploreReport.amount
+        var areaGold = List.empty[Gold]
+
+        for {
+          x <- event.wideArea.posX until (event.wideArea.posX + event.wideArea.sizeX)
+          y <- event.wideArea.posY until (event.wideArea.posY + event.wideArea.sizeY)
+          if left > 0
+        } {
+          val cellReport = client.explore(Area(x, y, 1, 1))
+          if (cellReport.amount > 0) {
             for (depth <- 1 to 10 if left > 0) {
               val license = metrics.measureBlocking(licenses.take(), metrics.LicenseAcquisition)
-              val gold = client.dig(DigRequest(license.licenseId, exploreReport.area.posX, exploreReport.area.posY, depth))
+              val gold = client.dig(DigRequest(license.licenseId, cellReport.area.posX, cellReport.area.posY, depth))
               license.callback()
               if (gold.nonEmpty) {
-                event.gold ++= gold
+                areaGold ++= gold
                 left -= 1
               }
             }
           }
-      }
-      .andThen(Parallelism) { event =>
+        }
+
         for {
-          gold <- event.gold
+          gold <- areaGold
           coin <- client.cash(gold)
         } {
           TotalGold.incrementAndGet()
           wallet.offer(Coin2(coin.value))
         }
-        event.clear()
       }
 
     val ringBuffer = disruptor.start()
 
-    val step = 2
+    val step = 4
     for {
       x <- 0 until Width by step
       y <- 0 until Width by step
