@@ -12,10 +12,10 @@ package object goldrush {
       disruptor.`then`(ParallelHandler.make[A](n)(f): _*)
   }
 
-  def runParallel(n: Int)(f: () => Unit): Unit = {
-    (0 until n).foreach { _ =>
+  def runParallel(n: Int)(f: Int => Unit): Unit = {
+    (0 until n).foreach { i =>
       new Thread(() => {
-        f()
+        f(i)
       }).start()
     }
   }

@@ -1,14 +1,10 @@
 package goldrush
 
-import com.lmax.disruptor.{BlockingWaitStrategy, ExceptionHandler, LiteBlockingWaitStrategy, YieldingWaitStrategy}
-import com.lmax.disruptor.dsl.{Disruptor, ProducerType}
-import com.lmax.disruptor.util.DaemonThreadFactory
 import goldrush.client.BlockingMineClient
 import goldrush.models._
 
 import java.time.LocalTime
 import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.locks.LockSupport
 import java.util.concurrent.{ArrayBlockingQueue, Executors, Semaphore, TimeUnit}
 
 object Main2 {
@@ -21,22 +17,6 @@ object Main2 {
   final val Parallelism = Cpus
 
   val client = new BlockingMineClient(Host)
-
-  class MineEvent {
-    var wideArea: Area = _
-
-    def clear(): Unit = {
-      wideArea = null
-    }
-  }
-
-  private val disruptor = new Disruptor[MineEvent](
-    () => new MineEvent(),
-    Parallelism * 4,
-    DaemonThreadFactory.INSTANCE,
-    ProducerType.SINGLE,
-    new LiteBlockingWaitStrategy
-  )
 
   final case class LicenseUse(licenseId: Int, callback: () => Unit)
 
@@ -61,10 +41,10 @@ object Main2 {
       }
     }, if (IsLocal) 50 else 500, TimeUnit.SECONDS)
 
-//    client.healthCheck()
+    client.healthCheck()
     started = true
 
-    runParallel(Cpus)(() => {
+    runParallel(Cpus)(_ => {
       while (true) {
         licenseSemaphore.acquire()
         val coin = wallet.poll()
@@ -76,87 +56,53 @@ object Main2 {
       }
     })
 
-    disruptor.setDefaultExceptionHandler(new ExceptionHandler[MineEvent] {
-      override def handleEventException(ex: Throwable, sequence: Long, event: MineEvent): Unit = {
-        ()
-      }
-
-      override def handleOnStartException(ex: Throwable): Unit = {}
-
-      override def handleOnShutdownException(ex: Throwable): Unit = {}
+    runParallel(Parallelism)(id => {
+      crawl(id, Parallelism, step, wallet, licenses)
     })
+  }
 
-    disruptor
-      .andThen(Parallelism) { event =>
-        val exploreReport = client.explore(event.wideArea)
+  def crawl(id: Int, total: Int, step: Int,
+            wallet: ArrayBlockingQueue[Coin2], licenses: ArrayBlockingQueue[LicenseUse]) = {
+    for {
+      x <- (id * step) to Width by (step * total)
+      //      x <- 0 until Width by step
+      y <- 0 until Width by step
+    } {
+      val wideArea = Area(x, y, step, step)
 
-        var left = exploreReport.amount
-        var areaGold = List.empty[Gold]
+      val exploreReport = client.explore(wideArea)
 
-        for {
-          x <- event.wideArea.posX until (event.wideArea.posX + event.wideArea.sizeX)
-          y <- event.wideArea.posY until (event.wideArea.posY + event.wideArea.sizeY)
-          if left > 0
-        } {
-          val cellReport = client.explore(Area(x, y, 1, 1))
-          if (cellReport.amount > 0) {
-            for (depth <- 1 to 10 if left > 0) {
-              val license = metrics.measureBlocking(licenses.take(), metrics.LicenseAcquisition)
-              val gold = client.dig(DigRequest(license.licenseId, cellReport.area.posX, cellReport.area.posY, depth))
-              license.callback()
-              if (gold.nonEmpty) {
-                areaGold ++= gold
-                left -= 1
-              }
+      var left = exploreReport.amount
+      var areaGold = List.empty[Gold]
+
+      for {
+        x <- wideArea.posX until (wideArea.posX + wideArea.sizeX)
+        y <- wideArea.posY until (wideArea.posY + wideArea.sizeY)
+        if left > 0
+      } {
+        val cellReport = client.explore(Area(x, y, 1, 1))
+        if (cellReport.amount > 0) {
+          for (depth <- 1 to 10 if left > 0) {
+            val license = metrics.measureBlocking(licenses.take(), metrics.LicenseAcquisition)
+            val gold = client.dig(DigRequest(license.licenseId, cellReport.area.posX, cellReport.area.posY, depth))
+            license.callback()
+            if (gold.nonEmpty) {
+              areaGold ++= gold
+              left -= 1
             }
           }
         }
-
-        for {
-          gold <- areaGold
-          coin <- client.cash(gold)
-        } {
-          TotalGold.incrementAndGet()
-          wallet.offer(Coin2(coin.value))
-        }
       }
 
-    val ringBuffer = disruptor.start()
-//
-//    for {
-//      x <- 0 until Width by step
-//      y <- 0 until Width by step
-//    } {
-//      ringBuffer.publishEvent((newEvent: MineEvent, _: Long) => {
-//        newEvent.wideArea = Area(x, y, step, step)
-//      })
-//    }
-    crawl(0, 10, step)
-  }
-
-  def crawl(id: Int, total: Int, step: Int) = {
-    for {
-      x <- (id * step) to Width by (step * total)
-//      x <- 0 until Width by step
-      y <- 0 until Width by step
-    } {
-      val wideArea = Area(x, y , step ,step)
-
+      for {
+        gold <- areaGold
+        coin <- client.cash(gold)
+      } {
+        TotalGold.incrementAndGet()
+        wallet.offer(Coin2(coin.value))
+      }
     }
 
   }
 
 }
-
-//Area(3496,3452,4,4)
-//Area(3496,3456,4,4)
-//Area(3496,3460,4,4)
-//Area(3496,3464,4,4)
-//Area(3496,3468,4,4)
-//Area(3496,3472,4,4)
-//Area(3496,3476,4,4)
-//Area(3496,3480,4,4)
-//Area(3496,3484,4,4)
-//Area(3496,3488,4,4)
-//Area(3496,3492,4,4)
-//Area(3496,3496,4,4)
