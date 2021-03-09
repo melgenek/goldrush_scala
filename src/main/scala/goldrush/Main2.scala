@@ -43,6 +43,8 @@ object Main2 {
   val licenseSemaphore = new Semaphore(10)
 
   def main(args: Array[String]): Unit = {
+    val step = 4
+    println(s"Parallelism: $Parallelism. Step: $step.")
     val licenses = new ArrayBlockingQueue[LicenseUse](128)
     val wallet = new ArrayBlockingQueue[Coin2](128)
     val start = LocalTime.now()
@@ -59,7 +61,7 @@ object Main2 {
       }
     }, if (IsLocal) 50 else 500, TimeUnit.SECONDS)
 
-    client.healthCheck()
+//    client.healthCheck()
     started = true
 
     runParallel(Cpus)(() => {
@@ -120,16 +122,41 @@ object Main2 {
       }
 
     val ringBuffer = disruptor.start()
+//
+//    for {
+//      x <- 0 until Width by step
+//      y <- 0 until Width by step
+//    } {
+//      ringBuffer.publishEvent((newEvent: MineEvent, _: Long) => {
+//        newEvent.wideArea = Area(x, y, step, step)
+//      })
+//    }
+    crawl(0, 10, step)
+  }
 
-    val step = 4
+  def crawl(id: Int, total: Int, step: Int) = {
     for {
-      x <- 0 until Width by step
+      x <- (id * step) to Width by (step * total)
+//      x <- 0 until Width by step
       y <- 0 until Width by step
     } {
-      ringBuffer.publishEvent((newEvent: MineEvent, _: Long) => {
-        newEvent.wideArea = Area(x, y, step, step)
-      })
+      val wideArea = Area(x, y , step ,step)
+
     }
+
   }
 
 }
+
+//Area(3496,3452,4,4)
+//Area(3496,3456,4,4)
+//Area(3496,3460,4,4)
+//Area(3496,3464,4,4)
+//Area(3496,3468,4,4)
+//Area(3496,3472,4,4)
+//Area(3496,3476,4,4)
+//Area(3496,3480,4,4)
+//Area(3496,3484,4,4)
+//Area(3496,3488,4,4)
+//Area(3496,3492,4,4)
+//Area(3496,3496,4,4)
