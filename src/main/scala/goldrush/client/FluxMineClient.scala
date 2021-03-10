@@ -12,7 +12,7 @@ import io.github.resilience4j.retry.{Retry, RetryConfig, RetryRegistry}
 import reactor.core.publisher.Mono
 
 import java.net.URI
-import java.net.http.{HttpClient, HttpRequest, HttpResponse}
+import java.net.http.{HttpClient, HttpRequest, HttpResponse, HttpTimeoutException}
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 import scala.collection.mutable
@@ -49,21 +49,20 @@ class FluxMineClient(host: String) {
 
   private val client = HttpClient.newHttpClient()
 
-  private def exploreJsoniter(r: HttpResponse[Array[Byte]]): ExploreReport =
+  private def exploreJsoniter(area: Area)(r: HttpResponse[Array[Byte]]): ExploreReport =
     if (r.statusCode() == 200) readFromArray[ExploreReport](r.body())
-    else throw UnexpectedErrorCode
+    else ExploreReport(area, 0)
 
   def explore(area: Area): Mono[ExploreReport] = {
     sendRequest(exploreUri, area, customTimeout)
       .transformDeferred(RateLimiterOperator.of(exploreLimiter))
       .retry()
-      .map(exploreJsoniter)
+      .map(r => exploreJsoniter(area)(r))
   }
 
   private def licenseJsoniter(r: HttpResponse[Array[Byte]]): License =
     if (r.statusCode() == 200) readFromArray[License](r.body())
-    else if (r.statusCode() == 409) License.EmptyLicense
-    else throw UnexpectedErrorCode
+    else License.EmptyLicense
 
   def issueLicense(coin: List[Coin]): Mono[License] = {
     sendRequest(licenseUri, coin, zio.duration.Duration.Infinity)
@@ -74,10 +73,7 @@ class FluxMineClient(host: String) {
 
   private def digJsoniter(r: HttpResponse[Array[Byte]]): List[Gold] =
     if (r.statusCode() == 200) readFromArray[List[Gold]](r.body())
-    else if (r.statusCode() == 404) List.empty
-    else if (r.statusCode() == 422) List.empty
-    else if (r.statusCode() == 403) List.empty
-    else throw UnexpectedErrorCode
+    else List.empty
 
   def dig(req: DigRequest): Mono[List[Gold]] = {
     sendRequest(digUri, req, customTimeout)
@@ -88,9 +84,7 @@ class FluxMineClient(host: String) {
 
   private def cashJsoniter(r: HttpResponse[Array[Byte]]): List[Coin] =
     if (r.statusCode() == 200) readFromArray[List[Coin]](r.body())
-    else if (r.statusCode() == 409) List.empty
-    else if (r.statusCode() == 404) List.empty
-    else throw UnexpectedErrorCode
+    else List.empty
 
   def cash(gold: Gold): Mono[List[Coin]] = {
     sendRequest(cashUri, gold, customTimeout)
@@ -109,10 +103,11 @@ class FluxMineClient(host: String) {
           val request = HttpRequest.newBuilder(uri)
             .headers("Content-Type", "application/json")
             .POST(HttpRequest.BodyPublishers.ofByteArray(writeToArray(body)))
-            .timeout(t)
+//            .timeout(t)
             .build()
           client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
         })
+        .timeout(t)
         .doOnNext(r => {
           InFlight.labels(uri.getPath).dec()
           RequestLatencies.labels(uri.getPath, r.statusCode.toString).observe(elapsedSeconds(start))
@@ -121,7 +116,7 @@ class FluxMineClient(host: String) {
           InFlight.labels(uri.getPath).dec()
           RequestLatencies.labels(uri.getPath, "555").observe(elapsedSeconds(start))
         })
-        .flatMap(r => if (r.statusCode() >= 500) Mono.error(UnexpectedErrorCode) else Mono.just(r))
+        .flatMap(r => if (r.statusCode() >= 500) Mono.error(ServerError(r.statusCode())) else Mono.just(r))
     })
   }
 

@@ -26,6 +26,7 @@ package object client {
     b => ByteArrayBody(writeToArray(b), MediaType.ApplicationJson)
 
   final object UnexpectedErrorCode extends Exception
+  final case class ServerError(code: Int) extends Exception
 
   type DecodeResponse[B] = HttpResponse[InputStream] => Either[Throwable, B]
 

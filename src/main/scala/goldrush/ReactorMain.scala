@@ -20,7 +20,7 @@ object ReactorMain {
   final val Cpus = Runtime.getRuntime.availableProcessors()
   final val TotalGold = new AtomicLong()
 
-  final val Parallelism = if (IsLocal) 1 else 64
+  final val Parallelism = if (IsLocal) 1 else 32
 
   val client = new FluxMineClient(Host)
 //  val blockingClient = new BlockingMineClient(Host)
