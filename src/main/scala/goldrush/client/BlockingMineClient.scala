@@ -44,7 +44,7 @@ class BlockingMineClient(host: String) {
   val cashLimiter: RateLimiter = rateLimiterRegistry.rateLimiter("cash")
   val licenseLimiter: RateLimiter = rateLimiterRegistry.rateLimiter("license")
 
-  val customTimeout = if (IsLocal) Duration.ofMillis(5000) else Duration.ofMillis(120)
+  val customTimeout = if (IsLocal) Duration.ofMillis(5000) else Duration.ofMillis(100)
 
   @tailrec
   final def healthCheck(): Unit = {

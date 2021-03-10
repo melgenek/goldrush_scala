@@ -22,47 +22,47 @@ object Main2 {
 
   val licenseSemaphore = new Semaphore(10)
 
-  def main(args: Array[String]): Unit = {
-    val step = 4
-    println(s"Parallelism: $Parallelism. Step: $step.")
-    val licenses = new ArrayBlockingQueue[LicenseUse](128)
-    val wallet = new ArrayBlockingQueue[Coin2](128)
-    val start = LocalTime.now()
-    var started = false
-    val scheduler = Executors.newSingleThreadScheduledExecutor()
-    scheduler.scheduleAtFixedRate(() => {
-      val now = LocalTime.now()
-      val timePassed = java.time.Duration.between(start, now)
-      println(s"$timePassed. Started: $started. Gold: ${TotalGold.get()}. Licenses: ${licenses.size()}. Wallet: ${wallet.size()}")
-    }, 0, if (IsLocal) 2 else 20, TimeUnit.SECONDS)
-    scheduler.schedule(new Runnable {
-      override def run(): Unit = {
-        metrics.printMetrics()
-      }
-    }, if (IsLocal) 50 else 500, TimeUnit.SECONDS)
-
-    client.healthCheck()
-    started = true
-
-    runParallel(Cpus)(_ => {
-      while (true) {
-        licenseSemaphore.acquire()
-        val coin = wallet.poll()
-        val license = client.issueLicense(Option(coin).map(c => Coin(c.value)))
-        (1 to license.digAllowed).foreach { i =>
-          if (i == license.digAllowed) licenses.put(LicenseUse(license.id, () => licenseSemaphore.release()))
-          else licenses.put(LicenseUse(license.id, () => ()))
-        }
-      }
-    })
-
-    runParallel(Parallelism)(id => {
-      crawl(id, Parallelism, step, wallet, licenses)
-    })
-  }
+//  def main(args: Array[String]): Unit = {
+  //    val step = 4
+  //    println(s"Parallelism: $Parallelism. Step: $step.")
+  //    val licenses = new ArrayBlockingQueue[LicenseUse](128)
+//    val wallet = new ArrayBlockingQueue[Coin2](128)
+//    val start = LocalTime.now()
+//    var started = false
+//    val scheduler = Executors.newSingleThreadScheduledExecutor()
+//    scheduler.scheduleAtFixedRate(() => {
+//      val now = LocalTime.now()
+  //      val timePassed = java.time.Duration.between(start, now)
+  //      println(s"$timePassed. Started: $started. Gold: ${TotalGold.get()}. Licenses: ${licenses.size()}. Wallet: ${wallet.size()}")
+  //    }, 0, if (IsLocal) 2 else 20, TimeUnit.SECONDS)
+//    scheduler.schedule(new Runnable {
+//      override def run(): Unit = {
+//        metrics.printMetrics()
+//      }
+//    }, if (IsLocal) 50 else 500, TimeUnit.SECONDS)
+//
+//    client.healthCheck()
+//    started = true
+//
+//    runParallel(Cpus)(_ => {
+//      while (true) {
+//        licenseSemaphore.acquire()
+//        val coin = wallet.poll()
+//        val license = client.issueLicense(Option(coin).map(c => Coin(c.value)))
+//        (1 to license.digAllowed).foreach { i =>
+//          if (i == license.digAllowed) licenses.put(LicenseUse(license.id, () => licenseSemaphore.release()))
+//          else licenses.put(LicenseUse(license.id, () => ()))
+//        }
+//      }
+//    })
+//
+//    runParallel(Parallelism)(id => {
+//      crawl(id, Parallelism, step, wallet, licenses)
+//    })
+//  }
 
   def crawl(id: Int, total: Int, step: Int,
-            wallet: ArrayBlockingQueue[Coin2], licenses: ArrayBlockingQueue[LicenseUse]) = {
+            wallet: ArrayBlockingQueue[Coin], licenses: ArrayBlockingQueue[LicenseUse]) = {
     for {
       x <- (id * step) to Width by (step * total)
       //      x <- 0 until Width by step
@@ -99,7 +99,7 @@ object Main2 {
         coin <- client.cash(gold)
       } {
         TotalGold.incrementAndGet()
-        wallet.offer(Coin2(coin.value))
+        wallet.offer(coin)
       }
     }
 
