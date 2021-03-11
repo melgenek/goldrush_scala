@@ -22,7 +22,8 @@ libraryDependencies ++= List(
   "io.github.resilience4j" % "resilience4j-retry" % "1.7.0",
   "io.github.resilience4j" % "resilience4j-reactor" % "1.7.0",
   "io.projectreactor" % "reactor-core" % "3.4.3",
-  "org.jctools" % "jctools-core" % "3.3.0"
+  "org.jctools" % "jctools-core" % "3.3.0",
+  "io.projectreactor.netty" % "reactor-netty-http" % "1.0.4"
 )
 
 //mainClass := Some("goldrush.Main2")

@@ -14,20 +14,10 @@ import reactor.core.publisher.Mono
 import java.net.URI
 import java.net.http.{HttpClient, HttpRequest, HttpResponse, HttpTimeoutException}
 import java.time.Duration
-import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.{ConcurrentHashMap, TimeoutException}
 import scala.collection.mutable
 
 class FluxMineClient(host: String) {
-
-  val retryConfig: RetryConfig = RetryConfig.custom
-    .maxAttempts(Int.MaxValue)
-    .intervalFunction(IntervalFunction.ofRandomized(30))
-    .retryOnResult((response: HttpResponse[Array[Byte]]) => response.statusCode() >= 500)
-    .retryOnException(e => {
-      true
-    })
-    .build()
-  val retry: Retry = RetryRegistry.of(retryConfig).retry("MineClient")
 
   val config: RateLimiterConfig = RateLimiterConfig.custom
     .limitRefreshPeriod(Duration.ofMillis(200))
@@ -103,7 +93,7 @@ class FluxMineClient(host: String) {
           val request = HttpRequest.newBuilder(uri)
             .headers("Content-Type", "application/json")
             .POST(HttpRequest.BodyPublishers.ofByteArray(writeToArray(body)))
-//            .timeout(t)
+            //            .timeout(t)
             .build()
           client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
         })
@@ -112,9 +102,13 @@ class FluxMineClient(host: String) {
           InFlight.labels(uri.getPath).dec()
           RequestLatencies.labels(uri.getPath, r.statusCode.toString).observe(elapsedSeconds(start))
         })
-        .doOnError(_ => {
-          InFlight.labels(uri.getPath).dec()
-          RequestLatencies.labels(uri.getPath, "555").observe(elapsedSeconds(start))
+        .doOnError(e => e match {
+          case _: HttpTimeoutException | _: TimeoutException =>
+            InFlight.labels(uri.getPath).dec()
+            RequestLatencies.labels(uri.getPath, "timeout").observe(elapsedSeconds(start))
+          case _ =>
+            InFlight.labels(uri.getPath).dec()
+            RequestLatencies.labels(uri.getPath, "unknown").observe(elapsedSeconds(start))
         })
         .flatMap(r => if (r.statusCode() >= 500) Mono.error(ServerError(r.statusCode())) else Mono.just(r))
     })

@@ -1,19 +1,22 @@
 package goldrush
 
 import goldrush.Main2.LicenseUse
-import goldrush.client.{BlockingMineClient, FluxMineClient}
-import goldrush.models.{Area, Coin, DigRequest, ExploreReport, Gold}
-import reactor.core.publisher.{Flux, FluxSink, Mono, SynchronousSink}
+import goldrush.client.TrueFluxMineClient
+import goldrush.models._
+import org.slf4j.impl.SimpleLogger
 import reactor.core.publisher.FluxSink.OverflowStrategy
+import reactor.core.publisher.{Flux, FluxSink, Mono}
 import reactor.core.scheduler.Schedulers
 
 import java.time.{Duration, LocalTime}
 import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.{ArrayBlockingQueue, Callable, Executors, Semaphore}
-import scala.collection.mutable
+import java.util.concurrent.{ArrayBlockingQueue, Semaphore}
 import scala.jdk.CollectionConverters._
 
 object ReactorMain {
+
+  System.setProperty(SimpleLogger.DEFAULT_LOG_LEVEL_KEY, "error")
+
   final val Width = 3500
   final val Host = sys.env.getOrElse("ADDRESS", "localhost")
   final val IsLocal = !sys.env.contains("ADDRESS")
@@ -22,8 +25,7 @@ object ReactorMain {
 
   final val Parallelism = if (IsLocal) 1 else 32
 
-  val client = new FluxMineClient(Host)
-//  val blockingClient = new BlockingMineClient(Host)
+  val client = new TrueFluxMineClient(Host)
 
   final case class CoinWrapper(coin: Coin)
 
@@ -89,18 +91,6 @@ object ReactorMain {
   def licenseIssuer() = {
     val licenseSemaphore = new Semaphore(10)
 
-    //    runParallel(Cpus)(_ => {
-    //      while (true) {
-    //        licenseSemaphore.acquire()
-    //        val coin = wallet.poll()
-    //        val license = blockingClient.issueLicense(Option(coin).map(_.coin))
-    //        (1 to license.digAllowed).foreach { i =>
-    //          if (i == license.digAllowed) licenses.put(LicenseUse(license.id, () => licenseSemaphore.release()))
-    //          else licenses.put(LicenseUse(license.id, () => ()))
-    //        }
-    //      }
-    //    })
-
     Flux
       .create((fluxSink: FluxSink[Unit]) => {
         while (true) {
@@ -134,6 +124,12 @@ object ReactorMain {
         val now = LocalTime.now()
         val timePassed = java.time.Duration.between(start, now)
         println(s"$timePassed. Started: $started. Gold: ${TotalGold.get()}. Licenses: ${licenses.size()}. Wallet: ${wallet.size()}")
+      }
+      .subscribeOn(Schedulers.boundedElastic())
+      .subscribe()
+    Flux.interval(if (IsLocal) Duration.ofSeconds(10) else Duration.ofMinutes(9))
+      .doOnNext { _ =>
+        metrics.printMetrics()
       }
       .subscribeOn(Schedulers.boundedElastic())
       .subscribe()
