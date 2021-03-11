@@ -88,8 +88,8 @@ class BlockingMineClient(host: String) {
 
   val issueLicense =
     Retry.decorateCheckedFunction(retry,
-      RateLimiter.decorateCheckedFunction(licenseLimiter, (coin: Option[Coin]) => {
-        sendRawRequest(licenseUri, coin.toList, zio.duration.Duration.Infinity)
+      RateLimiter.decorateCheckedFunction(licenseLimiter, (coins: List[Coin]) => {
+        sendRawRequest(licenseUri, coins, zio.duration.Duration.Infinity)
       })
     ).andThen(licenseJsoniter)
 

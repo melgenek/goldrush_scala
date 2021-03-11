@@ -9,8 +9,10 @@ import io.github.resilience4j.reactor.ratelimiter.operator.RateLimiterOperator
 import io.netty.buffer.Unpooled
 import io.netty.handler.timeout.ReadTimeoutException
 import reactor.core.publisher.Mono
+import reactor.netty.http.HttpProtocol
 import reactor.netty.http.client.HttpClientResponse
 
+import java.net.URI
 import java.net.http.HttpTimeoutException
 import java.nio.ByteBuffer
 import java.time.Duration
@@ -29,16 +31,32 @@ class TrueFluxMineClient(host: String) {
   val cashLimiter: RateLimiter = rateLimiterRegistry.rateLimiter("cash")
   val licenseLimiter: RateLimiter = rateLimiterRegistry.rateLimiter("license")
 
-  val reactorClient = reactor.netty.http.client.HttpClient.create().host(host).port(8000)
+  val reactorClient = reactor.netty.http.client.HttpClient.create()
+  reactorClient.warmup().block()
 
   val customTimeout = if (IsLocal) Duration.ofMillis(20) else Duration.ofMillis(100)
+
+  private val exploreUri = new URI(s"http://$host:8000/explore")
+  private val licenseUri = new URI(s"http://$host:8000/licenses")
+  private val digUri = new URI(s"http://$host:8000/dig")
+  private val cashUri = new URI(s"http://$host:8000/cash")
+  private val healthUri = new URI(s"http://$host:8000/health-check")
+
+  def healthCheck: Mono[Unit] = {
+    reactorClient
+      .get()
+      .uri(healthUri)
+      .response()
+      .map(_ => ())
+      .retry()
+  }
 
   private def exploreJsoniter(area: Area)(r: ResponseAndBody): ExploreReport =
     if (r.statusCode == 200) readFromByteBuffer[ExploreReport](r.body)
     else ExploreReport(area, 0)
 
   def explore(area: Area): Mono[ExploreReport] = {
-    sendRequest("/explore", area, customTimeout)
+    sendRequest(exploreUri, area, customTimeout)
       .transformDeferred(RateLimiterOperator.of(exploreLimiter))
       .retry()
       .map(r => exploreJsoniter(area)(r))
@@ -49,7 +67,7 @@ class TrueFluxMineClient(host: String) {
     else License.EmptyLicense
 
   def issueLicense(coin: List[Coin]): Mono[License] = {
-    sendRequest("/licenses", coin, zio.duration.Duration.Infinity)
+    sendRequest(licenseUri, coin, zio.duration.Duration.Infinity)
       .transformDeferred(RateLimiterOperator.of(licenseLimiter))
       .retry()
       .map(licenseJsoniter)
@@ -60,7 +78,7 @@ class TrueFluxMineClient(host: String) {
     else List.empty
 
   def dig(req: DigRequest): Mono[List[Gold]] = {
-    sendRequest("/dig", req, customTimeout)
+    sendRequest(digUri, req, customTimeout)
       .transformDeferred(RateLimiterOperator.of(digLimiter))
       .retry()
       .map(digJsoniter)
@@ -71,7 +89,7 @@ class TrueFluxMineClient(host: String) {
     else List.empty
 
   def cash(gold: Gold): Mono[List[Coin]] = {
-    sendRequest("/cash", gold, customTimeout)
+    sendRequest(cashUri, gold, customTimeout)
       .transformDeferred(RateLimiterOperator.of(cashLimiter))
       .retry()
       .map(cashJsoniter)
@@ -81,31 +99,31 @@ class TrueFluxMineClient(host: String) {
     val statusCode: Int = r.status().code()
   }
 
-  private def sendRequest[A: JsonValueCodec](path: String, body: A, t: Duration): Mono[ResponseAndBody] = {
+  private def sendRequest[A: JsonValueCodec](uri: URI, body: A, t: Duration): Mono[ResponseAndBody] = {
     Mono.fromSupplier(() => {
-      InFlight.labels(path).inc()
+      InFlight.labels(uri.getPath).inc()
       System.nanoTime()
     }).flatMap(start => {
       reactorClient
         .headers(h => h.add("Content-Type", "application/json"))
         .post()
-        .uri(path)
+        .uri(uri)
         .send((r, out) => {
-          r.responseTimeout(t)
+          //          r.responseTimeout(t)
           out.send(Mono.just(Unpooled.wrappedBuffer(writeToArray(body))))
         })
         .responseSingle((r, bytes) => bytes.asByteBuffer().map(b => ResponseAndBody(r, b)))
         .doOnNext(r => {
-          InFlight.labels(path).dec()
-          RequestLatencies.labels(path, r.statusCode.toString).observe(elapsedSeconds(start))
+          InFlight.labels(uri.getPath).dec()
+          RequestLatencies.labels(uri.getPath, r.statusCode.toString).observe(elapsedSeconds(start))
         })
         .doOnError(e => e match {
           case _: HttpTimeoutException | _: TimeoutException | _: ReadTimeoutException =>
-            InFlight.labels(path).dec()
-            RequestLatencies.labels(path, "timeout").observe(elapsedSeconds(start))
+            InFlight.labels(uri.getPath).dec()
+            RequestLatencies.labels(uri.getPath, "timeout").observe(elapsedSeconds(start))
           case _ =>
-            InFlight.labels(path).dec()
-            RequestLatencies.labels(path, "unknown").observe(elapsedSeconds(start))
+            InFlight.labels(uri.getPath).dec()
+            RequestLatencies.labels(uri.getPath, "unknown").observe(elapsedSeconds(start))
         })
         .flatMap(r => if (r.statusCode >= 500) Mono.error(ServerError(r.statusCode)) else Mono.just(r))
     })

@@ -97,7 +97,7 @@ class FluxMineClient(host: String) {
             .build()
           client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
         })
-        .timeout(t)
+//        .timeout(t)
         .doOnNext(r => {
           InFlight.labels(uri.getPath).dec()
           RequestLatencies.labels(uri.getPath, r.statusCode.toString).observe(elapsedSeconds(start))

@@ -46,10 +46,10 @@ javaOptions in Universal ++= Seq(
   "-J-XX:+UseCompressedClassPointers",
   "-J-XX:+UseCompressedOops",
   "-J-XX:+PrintCommandLineFlags",
-  "-J-XX:+UnlockExperimentalVMOptions",
-  "-J-XX:+UseJVMCICompiler",
-  "-J-XX:+EagerJVMCI",
-  "-Dgraal.ShowConfiguration=info"
+//  "-J-XX:+UnlockExperimentalVMOptions",
+//  "-J-XX:+UseJVMCICompiler",
+//  "-J-XX:+EagerJVMCI",
+//  "-Dgraal.ShowConfiguration=info"
 )
 
 graalVMNativeImageOptions ++= Seq(
