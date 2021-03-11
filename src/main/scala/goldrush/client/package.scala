@@ -16,7 +16,7 @@ import scala.util.control.NoStackTrace
 
 package object client {
 
-//  type MineClient = Has[MineClient.Service]
+  type MineClient = Has[MineClient.Service]
 
   def asJsoniterAlways[A: JsonValueCodec]: ResponseAs[A, Any] = asJsoniter.getRight
 
