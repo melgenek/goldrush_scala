@@ -16,6 +16,7 @@ libraryDependencies ++= List(
   "org.slf4j" % "slf4j-simple" % "1.7.30",
   "io.prometheus" % "simpleclient_common" % "0.10.0",
   "io.prometheus" % "simpleclient_hotspot" % "0.10.0",
+  "nl.vroste" %% "rezilience" % "0.6.1",
   "org.scalameta" % "svm-subs" % "101.0.0" % Compile
 )
 
@@ -37,10 +38,10 @@ javaOptions in Universal ++= Seq(
   "-J-XX:+UseCompressedClassPointers",
   "-J-XX:+UseCompressedOops",
   "-J-XX:+PrintCommandLineFlags",
-//  "-J-XX:+UnlockExperimentalVMOptions",
-//  "-J-XX:+UseJVMCICompiler",
-//  "-J-XX:+EagerJVMCI",
-//  "-Dgraal.ShowConfiguration=info"
+  //  "-J-XX:+UnlockExperimentalVMOptions",
+  //  "-J-XX:+UseJVMCICompiler",
+  //  "-J-XX:+EagerJVMCI",
+  //  "-Dgraal.ShowConfiguration=info"
 )
 
 graalVMNativeImageOptions ++= Seq(

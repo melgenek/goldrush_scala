@@ -43,7 +43,7 @@ object Main extends zio.App {
         .forkDaemon
 
       _ <- areas(Area(0, 0, Width, Width), 2)
-        .mapMParUnordered(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 2, 2), ExploreTimeout * 3) }
+        .mapMParUnordered(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 2, 2), ExploreTimeout * 2) }
         .filterNot(_.isEmpty)
         .flatMap(r => areas(r.area, 1))
         .mapMParUnordered(Parallelism) { case (x, y) => MineClient.explore(Area(x, y, 1, 1), ExploreTimeout) }
