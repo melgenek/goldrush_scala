@@ -6,6 +6,7 @@ import goldrush.client.MineClient.ExploreTimeout
 import goldrush.models.Coin.Coin
 import goldrush.models.Gold.Gold
 import goldrush.models._
+import zio.blocking.Blocking
 import zio.clock.Clock
 import zio.duration._
 import zio.stream.{UStream, ZStream}
@@ -25,7 +26,7 @@ object Main extends zio.App {
   final val GoldFound = new AtomicLong()
   final val TotalGold = new AtomicLong()
 
-  final val Parallelism = if (IsLocal) Cpus else Cpus
+  final val Parallelism = if (IsLocal) Cpus * 2 else Cpus * 2
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     println(s"Starting. Cpus: $Cpus. Parallelism: $Parallelism. Host: $Host")
@@ -45,33 +46,16 @@ object Main extends zio.App {
         .foreach(_ => UIO(metrics.printMetrics()))
         .forkDaemon
 
-      treasureReports <- randomAreas(Area(0, 0, Width, Width), 2)
+      treasures <- randomAreas(Area(0, 0, Width, Width), 2)
         .mapMParUnordered(Parallelism * 4)(area => MineClient.explore(area, ExploreTimeout * 2))
         .filterNot(_.isEmpty)
         .mapMParUnordered(Parallelism * 4) { r =>
-          //          ZIO.foldLeft(r.cells)((0, mutable.ArrayBuilder.make[ExploreReport])) {
-          //            case ((found, reports), area) =>
-          //              if (found >= r.amount) UIO((found, reports))
-          //              else for {
-          //                localReport <- MineClient.explore(area, ExploreTimeout)
-          //                newReports = if (localReport.amount > 0) reports += localReport else reports
-          //              } yield (found + localReport.amount, newReports)
-          //          }
-          //                    ZStream.fromIterable(r.cells).foldWhileM((0, mutable.ArrayBuilder.make[ExploreReport]))(_._1 < r.amount) {
-          //                      case ((found, reports), area) =>
-          //                        for {
-          //                          localReport <- MineClient.explore(area, ExploreTimeout)
-          //                          newReports = if (localReport.amount > 0) reports += localReport else reports
-          //                        } yield (found + localReport.amount, newReports)
-          //                    }
           loopExplore(r.amount, 0, r.cells, mutable.ArrayBuilder.make[ExploreReport])
         }
-        //                .mapConcat(_._2.result())
+        .mapConcat(identity)
         .tap(_ => UIO(TotalGold.incrementAndGet()))
         .take(if (IsLocal) 500 else 22000)
         .runCollect
-
-      treasures = treasureReports.flatten
 
       _ <- ZStream.fromChunk(treasures)
         .mapMParUnordered(Parallelism)(dig(licenses))
@@ -91,7 +75,8 @@ object Main extends zio.App {
     program.provideCustomLayer(layer).exitCode
   }
 
-  def loopExplore(amount: Int, found: Int, cells: List[Area], reports: mutable.ArrayBuilder[ExploreReport]): URIO[MineClient with Clock, Chunk[ExploreReport]] = {
+  def loopExplore(amount: Int, found: Int, cells: List[Area],
+                  reports: mutable.ArrayBuilder[ExploreReport]): URIO[MineClient with Clock with Blocking, Chunk[ExploreReport]] = {
     cells match {
       case cell :: tail if found < amount =>
         for {
@@ -105,7 +90,7 @@ object Main extends zio.App {
 
   final val DepthRange = 1 to 10
 
-  def dig(licenses: Queue[LicenseLease])(report: ExploreReport): ZIO[MineClient with Clock, Nothing, Array[Gold]] = {
+  def dig(licenses: Queue[LicenseLease])(report: ExploreReport): ZIO[MineClient with Clock with Blocking, Nothing, Array[Gold]] = {
     ZIO.foldLeft(DepthRange)(mutable.ArrayBuilder.make[Gold]) { case (acc, depth) =>
       if (acc.length >= report.amount) UIO(acc)
       else {

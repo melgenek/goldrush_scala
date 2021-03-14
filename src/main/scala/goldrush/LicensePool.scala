@@ -4,6 +4,7 @@ import goldrush.client.MineClient
 import goldrush.models.Coin.Coin
 import goldrush.models.{Coin, LicenseLease}
 import zio._
+import zio.blocking.Blocking
 import zio.clock.Clock
 import zio.stm.TSemaphore
 import zio.stream.ZStream
@@ -16,12 +17,12 @@ object LicensePool {
   final val Licenses = new AtomicInteger()
   final val GoldSpent = new AtomicLong()
 
-  def make: URIO[MineClient with Clock, (Queue[Coin], Queue[LicenseLease])] = {
+  def make: URIO[MineClient with Clock with Blocking, (Queue[Coin], Queue[LicenseLease])] = {
     for {
       wallet <- ZQueue.dropping[Coin](128)
       licenses <- ZQueue.bounded[LicenseLease](128)
       semaphore <- TSemaphore.make(MaxLicenses).commit
-      _ <- ZStream.repeatEffect(semaphore.acquire.commit)
+      _ <- ZStream.repeatEffect(zio.blocking.blocking(semaphore.acquire.commit))
         .mapMParUnordered(MaxLicenses) { _ =>
           for {
             //            licensesCount <- licenses.size

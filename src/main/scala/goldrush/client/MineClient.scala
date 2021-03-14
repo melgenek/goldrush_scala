@@ -108,20 +108,20 @@ object MineClient {
     }
   }
 
-  def explore(area: Area, timeout: Duration): ZIO[MineClient with Clock, Nothing, ExploreReport] =
-    ZIO.accessM(_.get.explore(area, timeout).retry(Schedule.forever).orDie)
+  def explore(area: Area, timeout: Duration): ZIO[MineClient with Clock with Blocking, Nothing, ExploreReport] =
+    zio.blocking.blocking(ZIO.accessM(_.get.explore(area, timeout).retry(Schedule.forever).orDie))
 
-  def dig(digRequest: DigRequest): URIO[MineClient with Clock, Array[Gold]] =
-    ZIO.accessM(_.get.dig(digRequest).retry(Schedule.forever).orDie)
+  def dig(digRequest: DigRequest): URIO[MineClient with Clock with Blocking, Array[Gold]] =
+    zio.blocking.blocking(ZIO.accessM(_.get.dig(digRequest).retry(Schedule.forever).orDie))
 
-  def issueLicense(coins: Seq[Coin]): RIO[MineClient with Clock, License] =
-    ZIO.accessM(_.get.issueLicense(coins).retry(Schedule.forever).orDie)
+  def issueLicense(coins: Seq[Coin]): RIO[MineClient with Clock with Blocking, License] =
+    zio.blocking.blocking(ZIO.accessM(_.get.issueLicense(coins).retry(Schedule.forever).orDie))
 
   def listLicenses(): URIO[MineClient with Clock, Array[License]] =
     ZIO.accessM(_.get.listLicenses().retry(Schedule.forever).orDie)
 
   def cash(gold: Gold): URIO[MineClient with Clock with Blocking, Array[Coin]] =
-//    zio.blocking.blocking(ZIO.accessM(_.get.cash(gold).retry(Schedule.forever).orDie))
-    ZIO.accessM(_.get.cash(gold).retry(Schedule.forever).orDie)
+    zio.blocking.blocking(ZIO.accessM(_.get.cash(gold).retry(Schedule.forever).orDie))
+
 
 }
