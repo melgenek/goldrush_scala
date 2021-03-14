@@ -6,6 +6,7 @@ import goldrush.models.Coin._
 import goldrush.models.Gold._
 import goldrush.models._
 import nl.vroste.rezilience.Bulkhead
+import zio.blocking.Blocking
 import zio.clock.Clock
 import zio.duration._
 import zio.{Has, RIO, Schedule, URIO, ZIO, ZLayer}
@@ -46,14 +47,15 @@ object MineClient {
 
     ZLayer.fromServiceManaged { client =>
       for {
-        bulkheadExplore <- Bulkhead.make(2000)
-        bulkheadDig <- Bulkhead.make(500)
-        bulkheadLicenses <- Bulkhead.make(100)
-        bulkheadCash <- Bulkhead.make(300)
+        bulkheadExplore <- Bulkhead.make(5000)
+        bulkheadDig <- Bulkhead.make(1300)
+        bulkheadLicenses <- Bulkhead.make(300)
+        bulkheadCash <- Bulkhead.make(1300)
       } yield new Service {
         override def explore(area: Area, timeout: Duration): RIO[Clock, ExploreReport] = {
           bulkheadExplore(client.sendRequest(exploreUri, area, timeout))
             .mapError(_.toException)
+            //          client.sendRequest(exploreUri, area, timeout)
             .repeatWhile(_.statusCode() > 500)
             .retry(Schedule.forever)
             .map { r =>
@@ -65,6 +67,7 @@ object MineClient {
         override def issueLicense(coins: Seq[Coin]): RIO[Clock, License] = {
           bulkheadDig(client.sendRequest(licenseUri, coins, zio.duration.Duration.Infinity))
             .mapError(_.toException)
+            //          client.sendRequest(licenseUri, coins, zio.duration.Duration.Infinity)
             .repeatWhile(_.statusCode() > 500)
             .retry(Schedule.forever)
             .map { r =>
@@ -81,6 +84,7 @@ object MineClient {
         override def dig(req: DigRequest): RIO[Clock, Array[Gold]] = {
           bulkheadLicenses(client.sendRequest(digUri, req, DigTimeout))
             .mapError(_.toException)
+            //          client.sendRequest(digUri, req, DigTimeout)
             .repeatWhile(_.statusCode() > 500)
             .retry(Schedule.forever)
             .map { r =>
@@ -92,6 +96,7 @@ object MineClient {
         override def cash(gold: Gold): RIO[Clock, Array[Coin]] = {
           bulkheadCash(client.sendRequest(cashUri, gold, CashTimeout))
             .mapError(_.toException)
+            //          client.sendRequest(cashUri, gold, CashTimeout)
             .repeatWhile(_.statusCode() > 500)
             .retry(Schedule.forever)
             .map { r =>
@@ -115,7 +120,8 @@ object MineClient {
   def listLicenses(): URIO[MineClient with Clock, Array[License]] =
     ZIO.accessM(_.get.listLicenses().retry(Schedule.forever).orDie)
 
-  def cash(gold: Gold): URIO[MineClient with Clock, Array[Coin]] =
+  def cash(gold: Gold): URIO[MineClient with Clock with Blocking, Array[Coin]] =
+//    zio.blocking.blocking(ZIO.accessM(_.get.cash(gold).retry(Schedule.forever).orDie))
     ZIO.accessM(_.get.cash(gold).retry(Schedule.forever).orDie)
 
 }

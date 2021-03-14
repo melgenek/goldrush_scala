@@ -11,6 +11,15 @@ object Area {
 
 final case class ExploreReport(area: Area, amount: Int) {
   def isEmpty: Boolean = amount == 0
+
+  val cells: List[Area] = {
+    import area._
+    val r = for {
+      x <- posX until (posX + sizeX)
+      y <- posY until (posY + sizeY)
+    } yield Area(x, y, 1, 1)
+    r.toList
+  }
 }
 
 object ExploreReport {

@@ -6,14 +6,11 @@ import goldrush.client.MineClient.ExploreTimeout
 import goldrush.models.Coin.Coin
 import goldrush.models.Gold.Gold
 import goldrush.models._
-import io.prometheus.client.CollectorRegistry
-import io.prometheus.client.exporter.common.TextFormat
 import zio.clock.Clock
 import zio.duration._
 import zio.stream.{UStream, ZStream}
-import zio.{ExitCode, Queue, UIO, URIO, ZIO}
+import zio.{Chunk, ExitCode, Queue, UIO, URIO, ZIO}
 
-import java.io.StringWriter
 import java.time.LocalTime
 import java.util.concurrent.atomic.AtomicLong
 import scala.collection.mutable
@@ -24,9 +21,11 @@ object Main extends zio.App {
   final val Host = sys.env.getOrElse("ADDRESS", "localhost")
   final val IsLocal = !sys.env.contains("ADDRESS")
   final val Cpus = Runtime.getRuntime.availableProcessors()
+  final val TotalCoins = new AtomicLong()
+  final val GoldFound = new AtomicLong()
   final val TotalGold = new AtomicLong()
 
-  final val Parallelism = Cpus
+  final val Parallelism = if (IsLocal) Cpus else Cpus
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     println(s"Starting. Cpus: $Cpus. Parallelism: $Parallelism. Host: $Host")
@@ -43,25 +42,47 @@ object Main extends zio.App {
         .forkDaemon
       _ <- ZStream.tick(if (IsLocal) 45.second else 9.minutes)
         .drop(1)
-        .foreach(_ => printMetrics())
+        .foreach(_ => UIO(metrics.printMetrics()))
         .forkDaemon
 
-      _ <- randomAreas(Area(0, 0, Width, Width), 2)
-        .mapMParUnordered(Parallelism)(area => MineClient.explore(area, ExploreTimeout * 2))
+      treasureReports <- randomAreas(Area(0, 0, Width, Width), 2)
+        .mapMParUnordered(Parallelism * 4)(area => MineClient.explore(area, ExploreTimeout * 2))
         .filterNot(_.isEmpty)
-        .mapMParUnordered(Parallelism) { r =>
-          areas(r.area, 1).foldWhileM(0)(_ < r.amount) { (found, area) =>
-            for {
-              localReport <- MineClient.explore(area, ExploreTimeout)
-              _ <- if (localReport.amount > 0) {
-                for {
-                  gold <- dig(licenses)(localReport)
-                  levelledCoins <- ZIO.foreachPar(gold)(MineClient.cash)
-                  coins = levelledCoins.flatten
-                  _ <- wallet.offerAll(coins)
-                } yield TotalGold.addAndGet(coins.length)
-              } else UIO.unit
-            } yield found + localReport.amount
+        .mapMParUnordered(Parallelism * 4) { r =>
+          //          ZIO.foldLeft(r.cells)((0, mutable.ArrayBuilder.make[ExploreReport])) {
+          //            case ((found, reports), area) =>
+          //              if (found >= r.amount) UIO((found, reports))
+          //              else for {
+          //                localReport <- MineClient.explore(area, ExploreTimeout)
+          //                newReports = if (localReport.amount > 0) reports += localReport else reports
+          //              } yield (found + localReport.amount, newReports)
+          //          }
+          //                    ZStream.fromIterable(r.cells).foldWhileM((0, mutable.ArrayBuilder.make[ExploreReport]))(_._1 < r.amount) {
+          //                      case ((found, reports), area) =>
+          //                        for {
+          //                          localReport <- MineClient.explore(area, ExploreTimeout)
+          //                          newReports = if (localReport.amount > 0) reports += localReport else reports
+          //                        } yield (found + localReport.amount, newReports)
+          //                    }
+          loopExplore(r.amount, 0, r.cells, mutable.ArrayBuilder.make[ExploreReport])
+        }
+        //                .mapConcat(_._2.result())
+        .tap(_ => UIO(TotalGold.incrementAndGet()))
+        .take(if (IsLocal) 500 else 22000)
+        .runCollect
+
+      treasures = treasureReports.flatten
+
+      _ <- ZStream.fromChunk(treasures)
+        .mapMParUnordered(Parallelism)(dig(licenses))
+        .mapMParUnordered(Parallelism) { gold =>
+          for {
+            levelledCoins <- ZIO.foreachPar(gold)(MineClient.cash)
+            coins = levelledCoins.flatten
+            _ <- wallet.offerAll(coins)
+          } yield {
+            GoldFound.addAndGet(gold.length)
+            TotalCoins.addAndGet(coins.length)
           }
         }
         .runDrain
@@ -70,8 +91,22 @@ object Main extends zio.App {
     program.provideCustomLayer(layer).exitCode
   }
 
+  def loopExplore(amount: Int, found: Int, cells: List[Area], reports: mutable.ArrayBuilder[ExploreReport]): URIO[MineClient with Clock, Chunk[ExploreReport]] = {
+    cells match {
+      case cell :: tail if found < amount =>
+        for {
+          localReport <- MineClient.explore(cell, ExploreTimeout)
+          newReports = if (localReport.amount > 0) reports += localReport else reports
+          reports <- loopExplore(amount, found + localReport.amount, tail, newReports)
+        } yield reports
+      case _ => ZIO.succeed(Chunk.fromArray(reports.result()))
+    }
+  }
+
+  final val DepthRange = 1 to 10
+
   def dig(licenses: Queue[LicenseLease])(report: ExploreReport): ZIO[MineClient with Clock, Nothing, Array[Gold]] = {
-    ZIO.foldLeft(1 to 10)(mutable.ArrayBuilder.make[Gold]) { case (acc, depth) =>
+    ZIO.foldLeft(DepthRange)(mutable.ArrayBuilder.make[Gold]) { case (acc, depth) =>
       if (acc.length >= report.amount) UIO(acc)
       else {
         for {
@@ -84,9 +119,9 @@ object Main extends zio.App {
   }
 
   def randomAreas(area: Area, step: Int): UStream[Area] = {
-    val row = area.posX until (area.sizeX / step) by step
+    val row = area.posX until (area.posX + area.sizeX) by step
     val shuffledRow = Random.shuffle(row.toVector)
-    val column = area.posY until (area.sizeY / step) by step
+    val column = area.posY until (area.posY + area.sizeY) by step
     val shuffledColumn = Random.shuffle(column.toVector)
     val areas = for {
       x <- shuffledRow
@@ -109,17 +144,8 @@ object Main extends zio.App {
     } yield {
       val now = LocalTime.now()
       val timePassed = java.time.Duration.between(start, now)
-      println(s"$timePassed. Total gold: ${TotalGold.get()}. Spent: ${GoldSpent.get()}. Licenses total: ${Licenses.get()}. Wallet: $walletSize. Licenses: $licensesSize")
+      println(s"$timePassed. Treasures: ${TotalGold.get()}. Found: ${GoldFound.get()} Coins: ${TotalCoins.get()}. Spent: ${GoldSpent.get()}. Licenses total: ${Licenses.get()}. Wallet: $walletSize. Licenses: $licensesSize")
     }
-  }
-
-  private def printMetrics() = UIO {
-    val writer = new StringWriter()
-    TextFormat.write004(writer, CollectorRegistry.defaultRegistry.metricFamilySamples())
-    val output = writer.toString.split("\n")
-      .filterNot(line => line.startsWith("#") || line.contains("_created"))
-      .mkString("\n")
-    println(output)
   }
 
 }
