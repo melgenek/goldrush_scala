@@ -1,6 +1,7 @@
 package goldrush
 
 import goldrush.client.MineClient
+import goldrush.models.Coin.Coin
 import goldrush.models.{Coin, LicenseLease}
 import zio._
 import zio.clock.Clock
@@ -23,6 +24,11 @@ object LicensePool {
       _ <- ZStream.repeatEffect(semaphore.acquire.commit)
         .mapMParUnordered(MaxLicenses) { _ =>
           for {
+            //            licensesCount <- licenses.size
+            //            rawCoins <- if (licensesCount < 10) wallet.takeUpTo(11) else wallet.takeUpTo(1)
+            //            coins = if (rawCoins.length == 11) rawCoins
+            //            else if (rawCoins.length == 1) rawCoins
+            //            else rawCoins.take(1)
             coins <- wallet.takeUpTo(1)
             license <- MineClient.issueLicense(coins)
             _ <- ZIO.foreach((1 to license.digAllowed).toList) { i =>
