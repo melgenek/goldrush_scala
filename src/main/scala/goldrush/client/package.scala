@@ -32,7 +32,7 @@ package object client {
             val request = HttpRequest.newBuilder(uri)
               .headers("Content-Type", "application/json")
               .POST(HttpRequest.BodyPublishers.ofByteArray(writeToArray(body)))
-//              .timeout(timeout)
+              .timeout(timeout)
               .build()
             client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
           }

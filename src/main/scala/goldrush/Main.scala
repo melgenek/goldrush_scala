@@ -10,7 +10,7 @@ import zio.blocking.Blocking
 import zio.clock.Clock
 import zio.duration._
 import zio.stream.{UStream, ZStream}
-import zio.{Chunk, ExitCode, Queue, UIO, URIO, ZIO}
+import zio.{ExitCode, Queue, UIO, URIO, ZIO}
 
 import java.time.LocalTime
 import java.util.concurrent.atomic.AtomicLong
@@ -23,10 +23,9 @@ object Main extends zio.App {
   final val IsLocal = !sys.env.contains("ADDRESS")
   final val Cpus = Runtime.getRuntime.availableProcessors()
   final val TotalCoins = new AtomicLong()
-  final val GoldFound = new AtomicLong()
   final val TotalGold = new AtomicLong()
 
-  final val Parallelism = if (IsLocal) Cpus * 2 else Cpus * 2
+  final val Parallelism = 8
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = {
     println(s"Starting. Cpus: $Cpus. Parallelism: $Parallelism. Host: $Host")
@@ -46,46 +45,31 @@ object Main extends zio.App {
         .foreach(_ => UIO(metrics.printMetrics()))
         .forkDaemon
 
-      treasures <- randomAreas(Area(0, 0, Width, Width), 2)
-        .mapMParUnordered(Parallelism * 4)(area => MineClient.explore(area, ExploreTimeout * 2))
+      _ <- randomAreas(Area(0, 0, Width, Width), 2)
+        .mapMParUnordered(Parallelism)(area => MineClient.explore(area, ExploreTimeout * 2))
         .filterNot(_.isEmpty)
-        .mapMParUnordered(Parallelism * 4) { r =>
-          loopExplore(r.amount, 0, r.cells, mutable.ArrayBuilder.make[ExploreReport])
-        }
-        .mapConcat(identity)
-        .tap(_ => UIO(TotalGold.incrementAndGet()))
-        .take(if (IsLocal) 500 else 22000)
-        .runCollect
-
-      _ <- ZStream.fromChunk(treasures)
-        .mapMParUnordered(Parallelism)(dig(licenses))
-        .mapMParUnordered(Parallelism) { gold =>
-          for {
-            levelledCoins <- ZIO.foreachPar(gold)(MineClient.cash)
-            coins = levelledCoins.flatten
-            _ <- wallet.offerAll(coins)
-          } yield {
-            GoldFound.addAndGet(gold.length)
-            TotalCoins.addAndGet(coins.length)
+        .mapMParUnordered(Parallelism) { r =>
+          areas(r.area, 1).foldWhileM(0)(_ < r.amount) { (found, area) =>
+            for {
+              localReport <- MineClient.explore(area, ExploreTimeout)
+              _ <- if (localReport.amount > 0) {
+                for {
+                  gold <- dig(licenses)(localReport)
+                  levelledCoins <- ZIO.foreachPar(gold)(MineClient.cash)
+                  coins = levelledCoins.flatten
+                  _ <- wallet.offerAll(coins)
+                } yield  {
+                  TotalGold.addAndGet(gold.length)
+                  TotalCoins.addAndGet(coins.length)
+                }
+              } else UIO.unit
+            } yield found + localReport.amount
           }
         }
         .runDrain
     } yield ()
 
     program.provideCustomLayer(layer).exitCode
-  }
-
-  def loopExplore(amount: Int, found: Int, cells: List[Area],
-                  reports: mutable.ArrayBuilder[ExploreReport]): URIO[MineClient with Clock with Blocking, Chunk[ExploreReport]] = {
-    cells match {
-      case cell :: tail if found < amount =>
-        for {
-          localReport <- MineClient.explore(cell, ExploreTimeout)
-          newReports = if (localReport.amount > 0) reports += localReport else reports
-          reports <- loopExplore(amount, found + localReport.amount, tail, newReports)
-        } yield reports
-      case _ => ZIO.succeed(Chunk.fromArray(reports.result()))
-    }
   }
 
   final val DepthRange = 1 to 10
@@ -129,7 +113,7 @@ object Main extends zio.App {
     } yield {
       val now = LocalTime.now()
       val timePassed = java.time.Duration.between(start, now)
-      println(s"$timePassed. Treasures: ${TotalGold.get()}. Found: ${GoldFound.get()} Coins: ${TotalCoins.get()}. Spent: ${GoldSpent.get()}. Licenses total: ${Licenses.get()}. Wallet: $walletSize. Licenses: $licensesSize")
+      println(s"$timePassed. Treasures: ${TotalGold.get()}. Coins: ${TotalCoins.get()}. Spent: ${GoldSpent.get()}. Licenses total: ${Licenses.get()}. Wallet: $walletSize. Licenses: $licensesSize")
     }
   }
 

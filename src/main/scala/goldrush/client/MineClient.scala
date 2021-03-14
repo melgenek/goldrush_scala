@@ -35,9 +35,9 @@ object MineClient {
   final val EmptyGoldArray = Array.empty[Gold]
   final val EmptyCoinArray = Array.empty[Coin]
 
-  final val DigTimeout = if (Main.IsLocal) 4000.millis else 100.millis
-  final val ExploreTimeout = if (Main.IsLocal) 4000.millis else 100.millis
-  final val CashTimeout = if (Main.IsLocal) 4000.millis else 100.millis
+  final val DigTimeout = if (Main.IsLocal) 4000.millis else 500.millis
+  final val ExploreTimeout = if (Main.IsLocal) 4000.millis else 500.millis
+  final val CashTimeout = if (Main.IsLocal) 4000.millis else 500.millis
 
   private def liveClient(host: String): ZLayer[Has[HttpClient], Nothing, MineClient] = {
     val exploreUri = new URI(s"http://$host:8000/explore")
@@ -55,7 +55,6 @@ object MineClient {
         override def explore(area: Area, timeout: Duration): RIO[Clock, ExploreReport] = {
           bulkheadExplore(client.sendRequest(exploreUri, area, timeout))
             .mapError(_.toException)
-            //          client.sendRequest(exploreUri, area, timeout)
             .repeatWhile(_.statusCode() > 500)
             .retry(Schedule.forever)
             .map { r =>
@@ -67,7 +66,6 @@ object MineClient {
         override def issueLicense(coins: Seq[Coin]): RIO[Clock, License] = {
           bulkheadDig(client.sendRequest(licenseUri, coins, zio.duration.Duration.Infinity))
             .mapError(_.toException)
-            //          client.sendRequest(licenseUri, coins, zio.duration.Duration.Infinity)
             .repeatWhile(_.statusCode() > 500)
             .retry(Schedule.forever)
             .map { r =>
@@ -84,7 +82,6 @@ object MineClient {
         override def dig(req: DigRequest): RIO[Clock, Array[Gold]] = {
           bulkheadLicenses(client.sendRequest(digUri, req, DigTimeout))
             .mapError(_.toException)
-            //          client.sendRequest(digUri, req, DigTimeout)
             .repeatWhile(_.statusCode() > 500)
             .retry(Schedule.forever)
             .map { r =>
@@ -96,7 +93,6 @@ object MineClient {
         override def cash(gold: Gold): RIO[Clock, Array[Coin]] = {
           bulkheadCash(client.sendRequest(cashUri, gold, CashTimeout))
             .mapError(_.toException)
-            //          client.sendRequest(cashUri, gold, CashTimeout)
             .repeatWhile(_.statusCode() > 500)
             .retry(Schedule.forever)
             .map { r =>
